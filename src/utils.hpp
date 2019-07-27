@@ -30,6 +30,12 @@ namespace
 template <class T, int N>
 using ntuple = typename ntuple_impl<T, N>::type;
 
+template <class T>
+constexpr T one() { return static_cast<T>(1); }
+
+template <class T>
+constexpr T zero() { return static_cast<T>(0); }
+
 } /* namespace Galerkin */
 
 #endif /* UTILS_HPP */
