@@ -1,6 +1,7 @@
 #ifndef UTILS_HPP
 #define UTILS_HPP
 
+#include <functional>
 #include <tuple>
 #include <utility>
 
@@ -35,6 +36,31 @@ constexpr T one() { return static_cast<T>(1); }
 
 template <class T>
 constexpr T zero() { return static_cast<T>(0); }
+
+template <auto BEGIN, auto END, auto STEP, class F, class COMB, class T>
+constexpr auto static_reduce(F&& f, T x, COMB&& c)
+{
+    static_assert(BEGIN <= END);
+
+    if constexpr (BEGIN == END)
+    {
+        return x;
+    }
+    else
+    {
+        auto y = std::forward<F>(f)(std::integral_constant<decltype(BEGIN), BEGIN>());
+        return static_reduce<BEGIN+1, END, STEP>(
+            std::forward<F>(f), std::forward<COMB>(c)(x, y), std::forward<COMB>(c)
+        );
+    }
+}
+
+template <auto BEGIN, auto END, class F, class T, auto STEP=1>
+constexpr auto static_sum(F&& f, T x)
+{
+    constexpr auto comb = [](auto x, auto y) { return x + y; };
+    return static_reduce<BEGIN, END, STEP>(std::forward<F>(f), x, comb);
+}
 
 } /* namespace Galerkin */
 
