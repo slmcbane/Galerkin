@@ -4,7 +4,6 @@
 #include "utils.hpp"
 
 #include <array>
-#include <cmath>
 #include <cstdint>
 #include <type_traits>
 
@@ -14,8 +13,6 @@ namespace Galerkin
 namespace Legendre
 {
 
-namespace
-{
 constexpr auto gcd(uint64_t a, uint64_t b)
 {
     auto x = a > b ? a : b;
@@ -58,8 +55,6 @@ constexpr auto gcd(std::array<uint64_t, N> numbers)
     }
 }
 
-} /* namespace */
-
 template <auto ORDER>
 struct Polynomial
 {
@@ -71,8 +66,7 @@ public:
     typedef int64_t coeff_t;
     typedef uint64_t denom_t;
 
-    constexpr Polynomial(std::array<coeff_t, ORDER + 1> c, denom_t d) noexcept :
-        m_coeffs{0}, m_denom{1}
+    constexpr Polynomial(std::array<coeff_t, ORDER + 1> c, denom_t d) noexcept : m_coeffs{0}, m_denom{1}
     {
         if (d != 0)
         {
@@ -100,10 +94,16 @@ public:
     constexpr auto operator()(T x) const noexcept
     {
         T total = 0;
-        for (int i = 0; i < ORDER+1; ++i) {
-            total += m_coeffs[i] * std::pow(x, i);
+        for (int i = 0; i < ORDER + 1; ++i)
+        {
+            auto term = m_coeffs[i] * one<T>();
+            for (int j = 0; j < i; ++j)
+            {
+                term = term * x;
+            }
+            total += term;
         }
-        return total;
+        return total / m_denom;
     }
 
     constexpr auto derivative() const noexcept
@@ -114,19 +114,17 @@ public:
         }
         else if constexpr (ORDER == 1)
         {
-            return Polynomial<0>({0, m_coeffs[1]}, 1);
+            return Polynomial<0>({m_coeffs[1]}, 1);
         }
         else
         {
-            return static_sum<2, ORDER+1>(
-                [=](auto I)
-                {
-                    std::array<coeff_t, I> coeffs = { 0 };
-                    coeffs[I-1] = I * m_coeffs[I];
-                    return Polynomial<I-1>(coeffs, m_denom);
+            return static_sum<2, ORDER + 1>(
+                [=](auto I) {
+                    std::array<coeff_t, I> coeffs = {0};
+                    coeffs[I - 1] = I * m_coeffs[I];
+                    return Polynomial<I - 1>(coeffs, m_denom);
                 },
-                Polynomial<0>({m_coeffs[1]}, m_denom)
-            );
+                Polynomial<0>({m_coeffs[1]}, m_denom));
         }
     }
 };
@@ -145,7 +143,7 @@ constexpr auto operator+(Polynomial<O1> p1, Polynomial<O2> p2) noexcept
             coeffs[i] = coeffs[i] * (newdenom / p1.denominator()) +
                         p2.coeffs()[i] * (newdenom / p2.denominator());
         }
-        for (int i = O2+1; i < O1+1; ++i)
+        for (int i = O2 + 1; i < O1 + 1; ++i)
         {
             coeffs[i] = coeffs[i] * (newdenom / p1.denominator());
         }
@@ -159,7 +157,7 @@ constexpr auto operator+(Polynomial<O1> p1, Polynomial<O2> p2) noexcept
             coeffs[i] = coeffs[i] * (newdenom / p2.denominator()) +
                         p1.coeffs()[i] * (newdenom / p1.denominator());
         }
-        for (int i = O1+1; i < O2 + 1; ++i)
+        for (int i = O1 + 1; i < O2 + 1; ++i)
         {
             coeffs[i] = coeffs[i] * (newdenom / p2.denominator());
         }
@@ -172,8 +170,8 @@ constexpr bool operator==(Polynomial<O1> p1, Polynomial<O2> p2)
 {
     if constexpr (O1 > O2)
     {
-        std::array<int64_t, O1+1> coeffs { 0 };
-        for (int i = 0; i < O2+1; ++i)
+        std::array<int64_t, O1 + 1> coeffs{0};
+        for (int i = 0; i < O2 + 1; ++i)
         {
             coeffs[i] = p2.coeffs()[i];
         }
@@ -193,12 +191,12 @@ template <auto O1, auto O2>
 constexpr auto operator*(Polynomial<O1> p1, Polynomial<O2> p2)
 {
     constexpr auto new_order = O1 + O2;
-    std::array<int64_t, new_order+1> coeffs { 0 };
-    for (int i = 0; i < O2+1; ++i)
+    std::array<int64_t, new_order + 1> coeffs{0};
+    for (int i = 0; i < O2 + 1; ++i)
     {
-        for (int j = 0; j < O1+1; ++j)
+        for (int j = 0; j < O1 + 1; ++j)
         {
-            coeffs[i+j] += p2.coeffs()[i] * p1.coeffs()[j];
+            coeffs[i + j] += p2.coeffs()[i] * p1.coeffs()[j];
         }
     }
     return Polynomial<new_order>(coeffs, p1.denominator() * p2.denominator());
@@ -208,19 +206,62 @@ template <auto O, class I>
 constexpr std::enable_if_t<std::is_integral_v<I>, Polynomial<O>>
 operator/(Polynomial<O> p, I v)
 {
-    return Polynomial<O>(p.coeffs(), v*p.denominator());
+    return Polynomial<O>(p.coeffs(), v * p.denominator());
 }
 
 template <auto N>
-constexpr auto polynomial = 
-    ( Polynomial<1>({0, 2*N-1}, 1) * polynomial<N-1> +
-      Polynomial<0>({-(N-1)}, 1) * polynomial<N-2> ) / N;
+constexpr auto polynomial =
+    (Polynomial<1>({0, 2 * N - 1}, 1) * polynomial<N - 1> +
+     Polynomial<0>({-(N - 1)}, 1) * polynomial<N - 2>) /
+    N;
 
 template <>
 constexpr auto polynomial<0> = Polynomial<0>({1}, 1);
 
 template <>
 constexpr auto polynomial<1> = Polynomial<1>({0, 1}, 1);
+
+template <class T, auto O>
+constexpr T interval_root(Polynomial<O> p, T low, T high)
+{
+    constexpr auto pprime = p.derivative();
+    auto x = (high + low) / 2;
+
+    while (p(x) != zero<T>())
+    {
+        auto delta = -(p(x) / pprime(x));
+        if (x + delta == x)
+        {
+            break;
+        }
+        x += delta;
+    }
+    return x;
+}
+
+template <class T, auto O>
+constexpr auto all_roots(Polynomial<O> p)
+{
+    if constexpr (O == 1)
+    {
+        return std::array<T, 1> { -p(zero<T>()) / p.derivative()(zero<T>()) };
+    }
+    else
+    {
+        constexpr auto inflection_points = all_roots<T, O-1>(p.derivative());
+        std::array<T, O> roots = {0};
+        roots[0] = interval_root<T, O>(p, -one<T>(), inflection_points[0]);
+        for (int i = 0; i < O - 2; ++i)
+        {
+            roots[i] = interval_root<T, O>(p, inflection_points[i], inflection_points[i + 1]);
+        }
+        roots[O - 1] = interval_root<T, O>(p, inflection_points[O - 2], one<T>());
+        return roots;
+    }
+}
+
+template <class T, auto O>
+constexpr auto roots = all_roots<T, O>(polynomial<O>);
 
 } /* namespace Legendre */
 
@@ -299,14 +340,13 @@ TEST_CASE("[Galerkin::Legendre] Test polynomial differentiation")
     REQUIRE(p2.derivative() == Polynomial<3>({3, 10, 9, 4}, 3));
 }
 
-
 TEST_CASE("[Galerkin::Legendre] Test correctness of Legendre::polynomial")
 {
     REQUIRE(polynomial<2> == Polynomial<2>({-1, 0, 3}, 2));
     REQUIRE(polynomial<3> == Polynomial<3>({0, -3, 0, 5}, 2));
     REQUIRE(polynomial<7> ==
             Polynomial<7>({0, -35, 0, 315, 0, -693, 0, 429}, 16));
-    REQUIRE(polynomial<10> == 
+    REQUIRE(polynomial<10> ==
             Polynomial<10>({-63, 0, 3465, 0, -30030, 0, 90090, 0, -109395, 0, 46189}, 256));
 }
 
