@@ -1,3 +1,9 @@
+/*
+ * Copyright (c) 2019, Sean McBane
+ * This file is part of the Galerkin library; Galerkin is copyright under the
+ * terms of the MIT license. Please see the top-level COPYRIGHT file for details.
+ */
+
 #ifndef MULTINOMIALS_HPP
 #define MULTINOMIALS_HPP
 
