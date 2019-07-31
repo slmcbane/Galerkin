@@ -3,10 +3,16 @@
 
 #include <functional>
 #include <tuple>
+#include <type_traits>
 #include <utility>
 
 namespace Galerkin
 {
+
+using std::tuple;
+using std::tuple_cat;
+using std::true_type;
+using std::false_type;
 
 namespace
 {
@@ -60,6 +66,123 @@ constexpr auto static_sum(F&& f, T x)
 {
     constexpr auto comb = [](auto x, auto y) { return x + y; };
     return static_reduce<BEGIN, END, STEP>(std::forward<F>(f), x, comb);
+}
+
+// This is a type-level list. It is intended to hold values that represent some
+// sort of mathematical constant and have a weak ordering with <=.
+template <class... Types>
+struct typeconst_list;
+
+template <class... Types>
+constexpr auto make_list(Types...)
+{
+    return typeconst_list<Types...>();
+}
+
+template<>
+struct typeconst_list<>
+{
+    static constexpr auto sorted()
+    {
+        return typeconst_list<>();
+    }
+
+    template <class... Types>
+    static constexpr auto append(typeconst_list<Types...>)
+    {
+        return typeconst_list<Types...>();
+    }
+
+    static constexpr auto count() { return 0UL; }
+
+    template <class F>
+    static constexpr auto map(F&& f) { return typeconst_list<>(); }
+
+    static constexpr auto unique() { return typeconst_list<>(); }
+};
+
+template <class T, class... Types>
+struct typeconst_list<T, Types...>
+{
+    static constexpr auto sorted()
+    {
+        // base case, only one type in the list.
+        if constexpr (sizeof...(Types) == 0)
+        {
+            return typeconst_list<T>();
+        }
+        else
+        {
+            constexpr auto sorted_tail = tail().sorted();
+            if constexpr(head() <= sorted_tail.head())
+            {
+                return typeconst_list<T>().append(sorted_tail);
+            }
+            else
+            {
+                constexpr auto first_two = make_list(sorted_tail.head(), T());
+                return first_two.append(sorted_tail.tail()).sorted();
+            }
+        }
+    }
+
+    static constexpr auto unique()
+    {
+        if constexpr (sizeof...(Types) == 0)
+        {
+            return typeconst_list<T>();
+        }
+        else
+        {
+            if constexpr (T() == tail().head())
+            {
+                return tail().unique();
+            }
+            else
+            {
+                return make_list(T()).append(tail().unique());
+            }
+        }
+    }
+
+    template <class... OtherTypes>
+    static constexpr auto append(typeconst_list<OtherTypes...>)
+    {
+        return typeconst_list<T, Types..., OtherTypes...>();
+    }
+
+    static constexpr auto head() { return T(); }
+
+    static constexpr auto tail() { return typeconst_list<Types...>(); }
+
+    static constexpr auto count() { return 1 + sizeof...(Types); }
+
+    template <class F>
+    static constexpr auto map(F&& f)
+    {
+        if constexpr (count() == 1)
+        {
+            return make_list(std::forward<F>(f)(T()));
+        }
+        else
+        {
+            return make_list(std::forward<F>(f)(T())).append(tail().map(std::forward<F>(f)));
+        }
+    }
+};
+
+template <auto I, class... Types>
+constexpr auto get(typeconst_list<Types...> lst)
+{
+    static_assert(I >= 0 && I < lst.count(), "Out of bounds access to list");
+    if constexpr (I == 0)
+    {
+        return lst.head();
+    }
+    else
+    {
+        return get<I-1>(lst.tail());
+    }
 }
 
 } /* namespace Galerkin */
