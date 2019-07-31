@@ -19,6 +19,9 @@ template <rational_num_t Num, rational_den_t Den>
 struct Rational
 {
     static_assert(Den != zero<rational_den_t>());
+
+    static constexpr auto num() { return Num; }
+    static constexpr auto den() { return Den; }
 };
 
 constexpr auto gcd(rational_num_t a, rational_den_t b)
@@ -79,6 +82,8 @@ TEST_CASE("[Galerkin::Rationals] Testing construction of rationals")
     REQUIRE(rational<2, 4> == rational<1, 2>);
     REQUIRE(rational<4, 2> == rational<2, 1>);
     REQUIRE(rational<-1, 3> == rational<-6, 18>);
+    // This should trigger a static assert
+    // REQUIRE(rational<1, 0> == rational<0, 1>);
 }
 
 #endif /* DOCTEST_LIBRARY_INCLUDED */
