@@ -59,6 +59,13 @@ constexpr bool operator<=(Powers<vs...>, Powers<ws...>)
     return tuple(vs...) <= tuple(ws...);
 }
 
+template <unsigned... vs, unsigned... ws>
+constexpr auto operator+(Powers<vs...>, Powers<ws...>)
+{
+    static_assert(nvars(Powers<vs...>()) == nvars(Powers<ws...>()));
+    return Powers<(ws + vs)...>();
+}
+
 // This struct represents a term in a multinomial.
 // R is a Rational type and P is a Powers type.
 template <class R, class P>
@@ -362,6 +369,63 @@ TEST_CASE("[Galerkin::Multinomials] Addition and subtraction of multinomials")
 
 /********************************************************************************
  * End of multinomial addition and subtraction tests.
+ *******************************************************************************/
+
+template <class R1, class P1, class R2, class P2>
+constexpr auto operator*(Term<R1, P1>, Term<R2, P2>)
+{
+    return term(R1()*R2(), P1()+P2());
+}
+
+template <class R, class P, class... Terms>
+constexpr auto operator*(Term<R, P> t, Multinomial<Terms...>)
+{
+    return multinomial(t * Terms()...);
+}
+
+template <class... Terms1, class... Terms2>
+constexpr auto operator*(Multinomial<Terms1...> mult1, Multinomial<Terms2...> mult2)
+{
+    return static_sum<0, mult2.count()>(
+        [=](auto I) { return get_term<I()>(mult2) * mult1; },
+        multinomial()
+    );
+}
+
+/********************************************************************************
+ * Test multiplication of multinomials (by multinomial and by scalar constant).
+ * Division by a scalar is implemented, but not multinomial division.
+ *******************************************************************************/
+
+#ifdef DOCTEST_LIBRARY_INCLUDED
+
+TEST_CASE("[Galerkin::Multinomials] Test multiplication and division of multinomials")
+{
+    SUBCASE("Multiplication of polynomials")
+    {
+        constexpr auto mult1 = multinomial(
+            term(rational<1>, powers(uint_constant<2>)),
+            term(rational<1, 2>, powers(uint_constant<0>))
+        );
+
+        constexpr auto mult2 = multinomial(
+            term(rational<1>, powers(uint_constant<2>)),
+            term(-rational<1, 2>, powers(uint_constant<0>))
+        );
+
+        constexpr auto mult3 = multinomial(
+            term(rational<1>, powers(uint_constant<4>)),
+            term(-rational<1, 4>, powers(uint_constant<0>))
+        );
+
+        REQUIRE(mult1 * mult2 == mult3);
+    }
+}
+
+#endif
+
+/********************************************************************************
+ * End multiplication and division tests
  *******************************************************************************/
 
 } /* namespace Multinomials */
