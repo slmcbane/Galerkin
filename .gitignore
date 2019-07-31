@@ -1,0 +1,7 @@
+CMakeCache.txt
+CMakeFiles
+cmake*
+Makefile
+test/Makefile
+test/runtests
+src/*.gch
