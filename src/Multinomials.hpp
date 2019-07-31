@@ -105,6 +105,12 @@ constexpr auto term(Rationals::Rational<N, D>, Powers<vs...>)
     return Term<decltype(Rationals::rational<N, D>), Powers<vs...>>();
 }
 
+template <class R, class P>
+constexpr auto operator-(Term<R, P>)
+{
+    return term(-R(), P());
+}
+
 // Helper to ensure that all terms in a multinomial have the same number of
 // variables.
 namespace
@@ -121,6 +127,12 @@ struct Multinomial : public typeconst_list<Terms...>
         "The number of variables in all terms of a Multinomial must be equal"
     );
 };
+
+template <class... T1s, class... T2s>
+constexpr bool operator==(Multinomial<T1s...>, Multinomial<T2s...>)
+{
+    return std::is_same_v<Multinomial<T1s...>, Multinomial<T2s...>>;
+}
 
 template <auto I, class... Terms>
 constexpr auto get_term(Multinomial<Terms...> mult)
@@ -249,6 +261,108 @@ TEST_CASE("[Galerkin::Multinomials] Creating multinomials")
 }
 
 #endif
+
+/********************************************************************************
+ * End of basic construction of multinomial tests.
+ *******************************************************************************/
+
+template <class... Terms1, class... Terms2>
+constexpr auto operator+(Multinomial<Terms1...> m1, Multinomial<Terms2...> m2)
+{
+    return multinomial(Terms1()..., Terms2()...);
+}
+
+template <class... Terms1, class... Terms2>
+constexpr auto operator-(Multinomial<Terms1...> m1, Multinomial<Terms2...> m2)
+{
+    return multinomial(Terms1()..., -Terms2()...);
+}
+
+template <class... Terms>
+constexpr auto operator-(Multinomial<Terms...>)
+{
+    return multinomial(-Terms()...);
+}
+
+/********************************************************************************
+ * Test addition and subtraction of multinomials.
+ *******************************************************************************/
+
+#ifdef DOCTEST_LIBRARY_INCLUDED
+
+TEST_CASE("[Galerkin::Multinomials] Addition and subtraction of multinomials")
+{
+    SUBCASE("All terms have the same powers")
+    {
+        constexpr auto mult1 = multinomial(
+            term(rational<1, 2>, powers(uint_constant<0>, uint_constant<0>)),
+            term(rational<1, 3>, powers(uint_constant<0>, uint_constant<1>)),
+            term(rational<1>, powers(uint_constant<1>, uint_constant<0>))
+        );
+
+        constexpr auto mult2 = multinomial(
+            term(rational<1, 2>, powers(uint_constant<0>, uint_constant<0>)),
+            term(rational<1, 3>, powers(uint_constant<0>, uint_constant<1>)),
+            term(-rational<1, 2>, powers(uint_constant<1>, uint_constant<0>))
+        );
+
+        constexpr auto mult3 = multinomial(
+            term(rational<1>, powers(uint_constant<0>, uint_constant<0>)),
+            term(rational<2, 3>, powers(uint_constant<0>, uint_constant<1>)),
+            term(rational<1, 2>, powers(uint_constant<1>, uint_constant<0>))
+        );
+
+        REQUIRE(mult1 + mult2 == mult3);
+        REQUIRE(mult3 - mult2 == mult1);
+        REQUIRE(mult3 - mult1 == mult2);
+        REQUIRE(mult3 - mult1 - mult2 == multinomial());
+
+        constexpr auto mult4 = multinomial(
+            term(rational<3, 2>, powers(uint_constant<1>, uint_constant<0>))
+        );
+
+        REQUIRE(mult1 - mult2 == mult4);
+        REQUIRE(mult4 + mult2 == mult1);
+        REQUIRE(mult1 - mult2 - mult4 == multinomial());
+    }
+
+    SUBCASE("Terms have different powers, should merge")
+    {
+        constexpr auto mult1 = multinomial(
+            term(rational<1>, powers(uint_constant<0>)),
+            term(rational<1>, powers(uint_constant<2>))
+        );
+
+        constexpr auto mult2 = multinomial(
+            term(rational<1>, powers(uint_constant<1>))
+        );
+
+        constexpr auto mult3 = multinomial(
+            term(rational<1>, powers(uint_constant<0>)),
+            term(rational<1>, powers(uint_constant<1>)),
+            term(rational<1>, powers(uint_constant<2>))
+        );
+
+        constexpr auto mult4 = multinomial(
+            term(rational<1>, powers(uint_constant<0>)),
+            term(rational<1>, powers(uint_constant<2>)),
+            term(-rational<1>, powers(uint_constant<1>))
+        );
+
+        REQUIRE(mult1 + mult2 == mult3);
+        REQUIRE(mult3 - mult2 == mult1);
+        REQUIRE(mult3 - mult1 == mult2);
+        REQUIRE(-mult1 + -mult2 == -mult3);
+
+        REQUIRE(mult1 - mult2 == mult4);
+    }
+}
+
+#endif
+
+/********************************************************************************
+ * End of multinomial addition and subtraction tests.
+ *******************************************************************************/
 
 } /* namespace Multinomials */
 
