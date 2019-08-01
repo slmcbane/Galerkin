@@ -29,6 +29,30 @@ struct Powers
 {
 };
 
+template <class... Args, unsigned... vs>
+constexpr auto raise(tuple<Args...> args, Powers<vs...>)
+{
+    static_assert(sizeof...(Args) == sizeof...(vs));
+    static_assert(sizeof...(Args) > 0);
+    return static_reduce<1, sizeof...(Args), 1>(
+        [=](auto I) {
+            constexpr auto power = std::get<I()>(tuple(vs...));
+            constexpr auto arg = std::get<I()>(args);
+            return static_reduce<0, power, 1>(
+                [=](auto I) { return arg; },
+                Rationals::rational<1>,
+                [] (auto x, auto y) { return x * y; }
+            );
+        },
+        static_reduce<0, std::get<0>(tuple(vs...)), 1>(
+            [=](auto I) { return std::get<0>(args); },
+            Rationals::rational<1>,
+            [] (auto x, auto y) { return x * y; }
+        ),
+        [] (auto x, auto y) { return x * y; }
+    );
+}
+
 template <unsigned... vs>
 constexpr auto nvars(Powers<vs...>) { return sizeof...(vs); }
 
@@ -77,6 +101,11 @@ constexpr auto operator+(Powers<vs...>, Powers<ws...>)
 template <class R, class P>
 struct Term
 {
+    template <class... Args>
+    constexpr auto operator()(tuple<Args...> args)
+    {
+        return R() * raise(args, P());
+    }
 };
 
 template <class R, class P, class R2, class P2>
@@ -128,17 +157,40 @@ constexpr auto operator-(Term<R, P>)
 // variables.
 namespace
 {
-    constexpr auto map_nvars = [](auto Term) { return uint_constant<nvars(Term)>; };
+constexpr auto map_nvars = [](auto Term) { return uint_constant<nvars(Term)>; };
 }
 
 // This struct is the type-level representation of a multinomial.
 template <class... Terms>
 struct Multinomial : public typeconst_list<Terms...>
 {
-    static_assert( sizeof...(Terms) == 0 ||
-        typeconst_list<Terms...>().map(map_nvars).unique().count() == 1,
-        "The number of variables in all terms of a Multinomial must be equal"
-    );
+    static_assert(sizeof...(Terms) == 0 ||
+                      typeconst_list<Terms...>().map(map_nvars).unique().count() == 1,
+                  "The number of variables in all terms of a Multinomial must be equal");
+
+    template <class... Types>
+    constexpr auto operator()(Types... args) const noexcept
+    {
+        constexpr auto tup = tuple(args...);
+        return this->operator()(tup);
+    }
+
+    template <class... Types>
+    constexpr auto operator()(tuple<Types...> args) const noexcept
+    {
+        if constexpr (sizeof...(Terms) == 0)
+        {
+            return uint_constant<0>;
+        }
+        else
+        {
+            return static_sum<1, sizeof...(Terms)>(
+                [=](auto I) {
+                    return get<I()>(static_cast<typeconst_list<Terms...>>(*this))(args);
+                },
+                this->head()(args));
+        }
+    }
 };
 
 template <class... T1s, class... T2s>
@@ -310,20 +362,17 @@ TEST_CASE("[Galerkin::Multinomials] Addition and subtraction of multinomials")
         constexpr auto mult1 = multinomial(
             term(rational<1, 2>, powers(uint_constant<0>, uint_constant<0>)),
             term(rational<1, 3>, powers(uint_constant<0>, uint_constant<1>)),
-            term(rational<1>, powers(uint_constant<1>, uint_constant<0>))
-        );
+            term(rational<1>, powers(uint_constant<1>, uint_constant<0>)));
 
         constexpr auto mult2 = multinomial(
             term(rational<1, 2>, powers(uint_constant<0>, uint_constant<0>)),
             term(rational<1, 3>, powers(uint_constant<0>, uint_constant<1>)),
-            term(-rational<1, 2>, powers(uint_constant<1>, uint_constant<0>))
-        );
+            term(-rational<1, 2>, powers(uint_constant<1>, uint_constant<0>)));
 
         constexpr auto mult3 = multinomial(
             term(rational<1>, powers(uint_constant<0>, uint_constant<0>)),
             term(rational<2, 3>, powers(uint_constant<0>, uint_constant<1>)),
-            term(rational<1, 2>, powers(uint_constant<1>, uint_constant<0>))
-        );
+            term(rational<1, 2>, powers(uint_constant<1>, uint_constant<0>)));
 
         REQUIRE(mult1 + mult2 == mult3);
         REQUIRE(mult3 - mult2 == mult1);
@@ -331,8 +380,7 @@ TEST_CASE("[Galerkin::Multinomials] Addition and subtraction of multinomials")
         REQUIRE(mult3 - mult1 - mult2 == multinomial());
 
         constexpr auto mult4 = multinomial(
-            term(rational<3, 2>, powers(uint_constant<1>, uint_constant<0>))
-        );
+            term(rational<3, 2>, powers(uint_constant<1>, uint_constant<0>)));
 
         REQUIRE(mult1 - mult2 == mult4);
         REQUIRE(mult4 + mult2 == mult1);
@@ -343,24 +391,20 @@ TEST_CASE("[Galerkin::Multinomials] Addition and subtraction of multinomials")
     {
         constexpr auto mult1 = multinomial(
             term(rational<1>, powers(uint_constant<0>)),
-            term(rational<1>, powers(uint_constant<2>))
-        );
+            term(rational<1>, powers(uint_constant<2>)));
 
         constexpr auto mult2 = multinomial(
-            term(rational<1>, powers(uint_constant<1>))
-        );
+            term(rational<1>, powers(uint_constant<1>)));
 
         constexpr auto mult3 = multinomial(
             term(rational<1>, powers(uint_constant<0>)),
             term(rational<1>, powers(uint_constant<1>)),
-            term(rational<1>, powers(uint_constant<2>))
-        );
+            term(rational<1>, powers(uint_constant<2>)));
 
         constexpr auto mult4 = multinomial(
             term(rational<1>, powers(uint_constant<0>)),
             term(rational<1>, powers(uint_constant<2>)),
-            term(-rational<1>, powers(uint_constant<1>))
-        );
+            term(-rational<1>, powers(uint_constant<1>)));
 
         REQUIRE(mult1 + mult2 == mult3);
         REQUIRE(mult3 - mult2 == mult1);
@@ -380,7 +424,7 @@ TEST_CASE("[Galerkin::Multinomials] Addition and subtraction of multinomials")
 template <class R1, class P1, class R2, class P2>
 constexpr auto operator*(Term<R1, P1>, Term<R2, P2>)
 {
-    return term(R1()*R2(), P1()+P2());
+    return term(R1() * R2(), P1() + P2());
 }
 
 template <class R, class P, class... Terms>
@@ -394,8 +438,7 @@ constexpr auto operator*(Multinomial<Terms1...> mult1, Multinomial<Terms2...> mu
 {
     return static_sum<0, mult2.count()>(
         [=](auto I) { return get_term<I()>(mult2) * mult1; },
-        multinomial()
-    );
+        multinomial());
 }
 
 /********************************************************************************
@@ -411,18 +454,55 @@ TEST_CASE("[Galerkin::Multinomials] Test multiplication and division of multinom
     {
         constexpr auto mult1 = multinomial(
             term(rational<1>, powers(uint_constant<2>)),
-            term(rational<1, 2>, powers(uint_constant<0>))
-        );
+            term(rational<1, 2>, powers(uint_constant<0>)));
 
         constexpr auto mult2 = multinomial(
             term(rational<1>, powers(uint_constant<2>)),
-            term(-rational<1, 2>, powers(uint_constant<0>))
-        );
+            term(-rational<1, 2>, powers(uint_constant<0>)));
 
         constexpr auto mult3 = multinomial(
             term(rational<1>, powers(uint_constant<4>)),
-            term(-rational<1, 4>, powers(uint_constant<0>))
-        );
+            term(-rational<1, 4>, powers(uint_constant<0>)));
+
+        REQUIRE(mult1 * mult2 == mult3);
+
+        constexpr auto mult4 = multinomial(
+            term(rational<1>, powers(uint_constant<2>)),
+            term(rational<2>, powers(uint_constant<1>)),
+            term(rational<3>, powers(uint_constant<0>)));
+
+        constexpr auto mult5 = multinomial(
+            term(rational<1>, powers(uint_constant<4>)),
+            term(rational<2>, powers(uint_constant<3>)),
+            term(rational<7, 2>, powers(uint_constant<2>)),
+            term(rational<1>, powers(uint_constant<1>)),
+            term(rational<3, 2>, powers(uint_constant<0>)));
+
+        REQUIRE(mult1 * mult4 == mult5);
+    }
+
+    SUBCASE("Multiplication of multinomials")
+    {
+        constexpr auto mult1 = multinomial(
+            term(rational<1>, powers(uint_constant<2>, uint_constant<0>)),
+            term(rational<2>, powers(uint_constant<1>, uint_constant<0>)),
+            term(rational<3>, powers(uint_constant<0>, uint_constant<0>)));
+
+        constexpr auto mult2 = multinomial(
+            term(rational<3>, powers(uint_constant<0>, uint_constant<2>)),
+            term(rational<2>, powers(uint_constant<0>, uint_constant<1>)),
+            term(rational<1>, powers(uint_constant<0>, uint_constant<0>)));
+
+        constexpr auto mult3 = multinomial(
+            term(rational<3>, powers(uint_constant<2>, uint_constant<2>)),
+            term(rational<2>, powers(uint_constant<2>, uint_constant<1>)),
+            term(rational<1>, powers(uint_constant<2>, uint_constant<0>)),
+            term(rational<6>, powers(uint_constant<1>, uint_constant<2>)),
+            term(rational<4>, powers(uint_constant<1>, uint_constant<1>)),
+            term(rational<2>, powers(uint_constant<1>, uint_constant<0>)),
+            term(rational<9>, powers(uint_constant<0>, uint_constant<2>)),
+            term(rational<6>, powers(uint_constant<0>, uint_constant<1>)),
+            term(rational<3>, powers(uint_constant<0>, uint_constant<0>)));
 
         REQUIRE(mult1 * mult2 == mult3);
     }
@@ -433,6 +513,27 @@ TEST_CASE("[Galerkin::Multinomials] Test multiplication and division of multinom
 /********************************************************************************
  * End multiplication and division tests
  *******************************************************************************/
+
+/********************************************************************************
+ * Test application of a multinomial
+ *******************************************************************************/
+
+#ifdef DOCTEST_LIBRARY_INCLUDED
+
+TEST_CASE("[Galerkin::Multinomials] Multinomial application")
+{
+    SUBCASE("Applying a polynomial")
+    {
+        constexpr auto mult1 = multinomial(
+            term(rational<1>, powers(uint_constant<2>)),
+            term(rational<2>, powers(uint_constant<1>)),
+            term(rational<1>, powers(uint_constant<0>)));
+
+        REQUIRE(mult1(rational<1, 2>) == rational<9, 4>);
+    }
+}
+
+#endif
 
 } /* namespace Multinomials */
 
