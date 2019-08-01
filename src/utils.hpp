@@ -54,14 +54,14 @@ constexpr auto static_reduce(F&& f, T x, COMB&& c)
 {
     static_assert(BEGIN <= END);
 
-    if constexpr (BEGIN == END)
+    if constexpr (BEGIN >= END)
     {
         return x;
     }
     else
     {
         auto y = std::forward<F>(f)(std::integral_constant<decltype(BEGIN), BEGIN>());
-        return static_reduce<BEGIN+1, END, STEP>(
+        return static_reduce<BEGIN+STEP, END, STEP>(
             std::forward<F>(f), std::forward<COMB>(c)(x, y), std::forward<COMB>(c)
         );
     }
