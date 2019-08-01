@@ -101,8 +101,8 @@ template <auto N1, auto D1, auto N2, auto D2>
 constexpr auto operator+(Rational<N1, D1>, Rational<N2, D2>)
 {
     constexpr auto lcm = D1 * D2 / gcd(D1, D2);
-    constexpr auto mult1 = lcm / D1;
-    constexpr auto mult2 = lcm / D2;
+    constexpr auto mult1 = static_cast<rational_num_t>(lcm / D1);
+    constexpr auto mult2 = static_cast<rational_num_t>(lcm / D2);
 
     return rational<N1*mult1 + N2*mult2, D1*mult1>;
 }
