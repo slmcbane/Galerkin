@@ -657,6 +657,117 @@ TEST_CASE("[Galerkin::Multinomials] Multinomial application")
  * End of multinomial application tests.
  *******************************************************************************/
 
+template <unsigned... vs>
+constexpr auto powers_from_tuple(tuple<std::integral_constant<unsigned, vs>...>)
+{
+    return Powers<vs...>();
+}
+
+template <auto I, unsigned v, unsigned... vs>
+constexpr auto subtract_one(
+    std::tuple<std::integral_constant<unsigned, v>,
+    std::integral_constant<unsigned, vs>...>)
+{
+    if constexpr (I == 0)
+    {
+        return std::tuple_cat(
+            std::tuple(uint_constant<v-1>),
+            std::tuple(uint_constant<vs>...)
+        );
+    }
+    else
+    {
+        return std::tuple_cat(
+            std::tuple(uint_constant<v>),
+            subtract_one<I-1>(std::tuple(uint_constant<vs>...))
+        );
+    }
+}
+
+template <auto I, unsigned... vs>
+constexpr auto subtract_one(Powers<vs...>)
+{
+    return powers_from_tuple(subtract_one<I>(tuple(uint_constant<vs>...)));
+}
+
+template <auto I, class R, class P>
+constexpr auto partial(Term<R, P>)
+{
+    static_assert(I < nvars(P()));
+    constexpr auto pow = get_power<I>(P());
+    if constexpr (pow == 0)
+    {
+        return term(Rationals::rational<0>, P());
+    }
+    else
+    {
+        return term(R() * uint_constant<get_power<I>(P())>, subtract_one<I>(P()));
+    }
+}
+
+template <auto I, class... Terms>
+constexpr auto partial(Multinomial<Terms...>)
+{
+    static_assert(I < nvars(get_term<0>(Multinomial<Terms...>())));
+    return multinomial(partial<I>(Terms())...);
+}
+
+/********************************************************************************
+ * Test for partial derivatives of a multinomial
+ *******************************************************************************/
+
+#ifdef DOCTEST_LIBRARY_INCLUDED
+
+TEST_CASE("Partial derivatives of a multinomial")
+{
+    SUBCASE("Test for a polynomial")
+    {
+        constexpr auto mult1 = multinomial(
+            term(rational<1>, powers(uint_constant<2>)),
+            term(rational<2>, powers(uint_constant<1>)),
+            term(rational<1>, powers(uint_constant<0>)));
+
+        constexpr auto mult2 = multinomial(
+            term(rational<2>, powers(uint_constant<1>)),
+            term(rational<2>, powers(uint_constant<0>))
+        );
+
+        REQUIRE(partial<0>(mult1) == mult2);
+    }
+
+    SUBCASE("Test for a multinomial")
+    {
+        constexpr auto mult = multinomial(
+            term(rational<3, 4>, powers(uint_constant<2>, uint_constant<1>)),
+            term(rational<1, 4>, powers(uint_constant<1>, uint_constant<1>)),
+            term(rational<1, 2>, powers(uint_constant<1>, uint_constant<0>)),
+            term(rational<1, 3>, powers(uint_constant<0>, uint_constant<1>)),
+            term(rational<2, 3>, powers(uint_constant<0>, uint_constant<0>))
+        );
+
+        constexpr auto dmult0 = multinomial(
+            term(rational<6, 4>, powers(uint_constant<1>, uint_constant<1>)),
+            term(rational<1, 4>, powers(uint_constant<0>, uint_constant<1>)),
+            term(rational<1, 2>, powers(uint_constant<0>, uint_constant<0>))
+        );
+
+        constexpr auto dmult1 = multinomial(
+            term(rational<3, 4>, powers(uint_constant<2>, uint_constant<0>)),
+            term(rational<1, 4>, powers(uint_constant<1>, uint_constant<0>)),
+            term(rational<1, 3>, powers(uint_constant<0>, uint_constant<0>))
+        );
+
+        REQUIRE(partial<0>(mult) == dmult0);
+        REQUIRE(partial<1>(mult) == dmult1);
+    }
+}
+
+#endif /* DOCTEST_LIBRARY_INCLUDED */
+
+/********************************************************************************
+ * End of partial derivative tests.
+ *******************************************************************************/
+
 } /* namespace Multinomials */
 
 } /* namespace Galerkin */
