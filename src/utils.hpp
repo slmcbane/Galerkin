@@ -102,7 +102,7 @@ struct typeconst_list<>
     static constexpr auto count() { return 0UL; }
 
     template <class F>
-    static constexpr auto map(F&& f) { return typeconst_list<>(); }
+    static constexpr auto map([[maybe_unused]] F&& f) { return typeconst_list<>(); }
 
     static constexpr auto unique() { return typeconst_list<>(); }
 };

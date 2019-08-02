@@ -28,6 +28,11 @@ struct Rational
 
     static constexpr auto num() { return Num; }
     static constexpr auto den() { return Den; }
+
+    constexpr operator double() const
+    {
+        return static_cast<double>(Num) / Den;
+    }
 };
 
 constexpr auto gcd(rational_num_t a, rational_den_t b)
@@ -37,8 +42,9 @@ constexpr auto gcd(rational_num_t a, rational_den_t b)
         a = -a;
     }
 
-    auto x = a > b ? a : b;
-    auto y = a > b ? b : a;
+    auto x = static_cast<rational_den_t>(a);
+    auto y = x > b ? b : x;
+    x = x > b ? x : b;
 
     if (y == 0)
     {
@@ -199,6 +205,32 @@ constexpr auto operator/(Rational<N, D>, std::integral_constant<I, v>)
     }
 }
 
+template <auto N, auto D, class T>
+constexpr auto operator*(Rational<N, D>, T x)
+{
+    if constexpr (std::is_same_v<T, float>)
+    {
+        return (N * x) / D;
+    }
+    else
+    {
+        return (N * static_cast<double>(x)) / D;
+    }
+}
+
+template <auto N, auto D, class T>
+constexpr auto operator/(Rational<N, D>, T x)
+{
+    if constexpr (std::is_same_v<T, float>)
+    {
+        return N / (D * x);
+    }
+    else
+    {
+        return N / (D * static_cast<double>(x));
+    }
+}
+
 /********************************************************************************
  * Tests of rational multiplication and division.
  *******************************************************************************/
@@ -223,6 +255,11 @@ TEST_CASE("[Galerkin::Rationals] Testing rational multiplication and division")
     REQUIRE(rational<3, 10> / std::integral_constant<int, 3>() == rational<1, 10>);
     REQUIRE(rational<1, 6> * std::integral_constant<int, 3>() == rational<1, 2>);
     REQUIRE(rational<1, 6> / std::integral_constant<int, -2>() == rational<-1, 12>);
+
+    REQUIRE(rational<1, 2> * 0.5 == doctest::Approx(0.25));
+    REQUIRE(rational<1, 2> / 3 == doctest::Approx(1.0 / 6));
+    REQUIRE(std::is_same_v<
+        decltype(rational<1, 2> * std::declval<float>()), float>);
 }
 
 #endif /* DOCTEST_LIBRARY_INCLUDED */
