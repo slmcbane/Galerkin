@@ -672,14 +672,14 @@ constexpr auto subtract_one(
     {
         return std::tuple_cat(
             std::tuple(uint_constant<v-1>),
-            std::tuple(uint_constant<vs>...)
+            std::make_tuple(uint_constant<vs>...)
         );
     }
     else
     {
         return std::tuple_cat(
             std::tuple(uint_constant<v>),
-            subtract_one<I-1>(std::tuple(uint_constant<vs>...))
+            subtract_one<I-1>(std::make_tuple(uint_constant<vs>...))
         );
     }
 }
