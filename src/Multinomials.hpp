@@ -16,9 +16,6 @@ namespace Galerkin
 namespace Multinomials
 {
 
-using std::tuple;
-using std::tuple_cat;
-
 // I only support positive powers here.
 template <unsigned v>
 constexpr auto uint_constant = std::integral_constant<unsigned, v>();
@@ -30,13 +27,13 @@ struct Powers
 };
 
 template <class... Args, unsigned... vs>
-constexpr auto raise(tuple<Args...> args, Powers<vs...>)
+constexpr auto raise(std::tuple<Args...> args, Powers<vs...>)
 {
     static_assert(sizeof...(Args) == sizeof...(vs));
     static_assert(sizeof...(Args) > 0);
     return static_reduce<1, sizeof...(Args), 1>(
         [=]([[maybe_unused]] auto I) {
-            constexpr auto power = std::get<I()>(tuple(vs...));
+            constexpr auto power = std::get<I()>(std::tuple(vs...));
             auto arg = std::get<I()>(args);
             return static_reduce<0, power, 1>(
                 [=]([[maybe_unused]] auto I) { return arg; },
@@ -44,7 +41,7 @@ constexpr auto raise(tuple<Args...> args, Powers<vs...>)
                 [] (auto x, auto y) { return x * y; }
             );
         },
-        static_reduce<0, std::get<0>(tuple(vs...)), 1>(
+        static_reduce<0, std::get<0>(std::tuple(vs...)), 1>(
             [=]([[maybe_unused]] auto I) { return std::get<0>(args); },
             Rationals::rational<1>,
             [] (auto x, auto y) { return x * y; }
@@ -57,7 +54,7 @@ template <unsigned... vs>
 constexpr auto nvars(Powers<vs...>) { return sizeof...(vs); }
 
 template <auto I, unsigned... vs>
-constexpr auto get_power(Powers<vs...>) { return std::get<I>(tuple(vs...)); }
+constexpr auto get_power(Powers<vs...>) { return std::get<I>(std::tuple(vs...)); }
 
 template <unsigned... vs>
 constexpr auto powers(std::integral_constant<unsigned, vs>...)
@@ -70,7 +67,7 @@ constexpr bool operator<(Powers<vs...>, Powers<ws...>)
 {
     static_assert(nvars(Powers<vs...>()) == nvars(Powers<ws...>()));
 
-    return tuple(vs...) < tuple(ws...);
+    return std::tuple(vs...) < std::tuple(ws...);
 }
 
 template <unsigned... vs, unsigned... ws>
@@ -78,7 +75,7 @@ constexpr bool operator==(Powers<vs...>, Powers<ws...>)
 {
     static_assert(nvars(Powers<vs...>()) == nvars(Powers<ws...>()));
 
-    return tuple(vs...) == tuple(ws...);
+    return std::tuple(vs...) == std::tuple(ws...);
 }
 
 template <unsigned... vs, unsigned... ws>
@@ -86,7 +83,7 @@ constexpr bool operator<=(Powers<vs...>, Powers<ws...>)
 {
     static_assert(nvars(Powers<vs...>()) == nvars(Powers<ws...>()));
 
-    return tuple(vs...) <= tuple(ws...);
+    return std::tuple(vs...) <= std::tuple(ws...);
 }
 
 template <unsigned... vs, unsigned... ws>
@@ -102,7 +99,7 @@ template <class R, class P>
 struct Term
 {
     template <class... Args>
-    constexpr auto operator()(tuple<Args...> args)
+    constexpr auto operator()(std::tuple<Args...> args)
     {
         return R() * raise(args, P());
     }
@@ -171,12 +168,12 @@ struct Multinomial : public typeconst_list<Terms...>
     template <class... Types>
     constexpr auto operator()(Types... args) const noexcept
     {
-        auto tup = tuple(args...);
+        auto tup = std::tuple(args...);
         return this->operator()(tup);
     }
 
     template <class... Types>
-    constexpr auto operator()(tuple<Types...> args) const noexcept
+    constexpr auto operator()(std::tuple<Types...> args) const noexcept
     {
         if constexpr (sizeof...(Terms) == 0)
         {
@@ -658,7 +655,7 @@ TEST_CASE("[Galerkin::Multinomials] Multinomial application")
  *******************************************************************************/
 
 template <unsigned... vs>
-constexpr auto powers_from_tuple(tuple<std::integral_constant<unsigned, vs>...>)
+constexpr auto powers_from_tuple(std::tuple<std::integral_constant<unsigned, vs>...>)
 {
     return Powers<vs...>();
 }
@@ -687,7 +684,7 @@ constexpr auto subtract_one(
 template <auto I, unsigned... vs>
 constexpr auto subtract_one(Powers<vs...>)
 {
-    return powers_from_tuple(subtract_one<I>(tuple(uint_constant<vs>...)));
+    return powers_from_tuple(subtract_one<I>(std::tuple(uint_constant<vs>...)));
 }
 
 template <auto I, class R, class P>

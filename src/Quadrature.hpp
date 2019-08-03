@@ -1,6 +1,7 @@
 #ifndef QUADRATURE_HPP
 #define QUADRATURE_HPP
 
+#include <array>
 #include "utils.hpp"
 #include "Legendre.hpp"
 

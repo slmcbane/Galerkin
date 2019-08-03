@@ -15,11 +15,6 @@
 namespace Galerkin
 {
 
-using std::tuple;
-using std::tuple_cat;
-using std::true_type;
-using std::false_type;
-
 namespace
 {
     template <class T, int N>
