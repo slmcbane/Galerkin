@@ -79,17 +79,17 @@ constexpr T zero = static_cast<T>(0);
  * @tparam BEGIN The initial value for the reduction loop
  * @tparam END The end value for the reduction loop; range is `[BEGIN, END)`.
  * @tparam STEP The increment between evaluations.
- * @param f A generic callable object that accepts a `std::integral_constant`.
- * @param x An initial value for the reduction - e.g. `zero<T>` for a sum or
+ * @param[in] f A generic callable object that accepts a `std::integral_constant`.
+ * @param[in] x An initial value for the reduction - e.g. `zero<T>` for a sum or
  * `one<T>` for a product.
- * @param c A callable taking two objects `x` and `y` and returning a single
+ * @param[in] c A callable taking two objects `x` and `y` and returning a single
  * value; for example, `operator+` to perform a summation.
+ * 
+ * @returns The reduction using `x` as an initial value.
  */
 template <auto BEGIN, auto END, auto STEP, class F, class COMB, class T>
 constexpr auto static_reduce(F&& f, T x, COMB&& c)
 {
-    static_assert(BEGIN <= END);
-
     if constexpr (BEGIN >= END)
     {
         return x;
@@ -103,6 +103,18 @@ constexpr auto static_reduce(F&& f, T x, COMB&& c)
     }
 }
 
+/*!
+ * @brief A simple wrapper around `static_reduce` that performs a summation.
+ * 
+ * This wrapper also provides a default value for the `STEP` parameter; as a
+ * consequence if you want to override it you will have to specify types of
+ * `f` and `x` in the template parameters.
+ * 
+ * @param[in] f A callable taking an `integral_constant` as for `static_reduce`.
+ * @param[in] x Initial value for the summation.
+ * 
+ * @returns `x + sum(f(i) for i in range(BEGIN, STEP, END)`
+ */
 template <auto BEGIN, auto END, class F, class T, auto STEP=1>
 constexpr auto static_sum(F&& f, T x)
 {
@@ -110,42 +122,69 @@ constexpr auto static_sum(F&& f, T x)
     return static_reduce<BEGIN, END, STEP>(std::forward<F>(f), x, comb);
 }
 
-// This is a type-level list. It is intended to hold values that represent some
-// sort of mathematical constant and have a weak ordering with <=.
+/*!
+ * @brief Holds a list of types, which should represent values and be default-constructible.
+ * 
+ * The metaprogramming in Galerkin uses a paradigm where mathematical entities are
+ * represented via types that hold all of their parameters as template parameters;
+ * however, these objects are passed around *by value*, not only as template
+ * parameters. This allows for mixing compile-time computations with run-time all
+ * in the same code. The `typeconst_list` is my list type for holding values that
+ * act like this. It expects `Types...` to be default-constructible and, for some
+ * methods, comparable using `<=` and `==`.
+ */
 template <class... Types>
 struct typeconst_list;
 
+/*!
+ * @brief Functional-style construction of a `typeconst_list`.
+ */
 template <class... Types>
 constexpr auto make_list(Types...)
 {
     return typeconst_list<Types...>();
 }
 
+/*!
+ * @brief Specialization of `typeconst_list` for the empty list.
+ * 
+ * Accessors like `head` and `tail` are undefined for this base type; other
+ * methods may throw a `static_assert` if used here. Permitted operations should
+ * be common sense.
+ */
 template<>
 struct typeconst_list<>
 {
+    /// Sort the list; trivially for the empty list.
     static constexpr auto sorted()
     {
         return typeconst_list<>();
     }
 
+    /// Append another list to this one - again trivial.
     template <class... Types>
-    static constexpr auto append(typeconst_list<Types...>)
+    static constexpr auto append(typeconst_list<Types...> lst)
     {
-        return typeconst_list<Types...>();
+        return lst;
     }
 
+    /// Retrieve the number of items in the list.
     static constexpr auto count() { return 0UL; }
 
+    /// Base specialization of `lst.map`; a no-op for the empty specialization.
     template <class F>
     static constexpr auto map([[maybe_unused]] F&& f) { return typeconst_list<>(); }
 
+    /// Get only unique members of the list.
     static constexpr auto unique() { return typeconst_list<>(); }
 };
 
+/// Specialization of `typeconst_list` for the case where the list is *not* empty.
 template <class T, class... Types>
 struct typeconst_list<T, Types...>
 {
+    /// Return another list with `Types...` order with `<=`. `Types...` must be
+    /// default constructible and have `<=` defined.
     static constexpr auto sorted()
     {
         // base case, only one type in the list.
@@ -168,6 +207,12 @@ struct typeconst_list<T, Types...>
         }
     }
 
+    /*!
+     * @brief Get a list containing only the unique types from this one.
+     * 
+     * This method expects the list to be sorted - lst.sorted().unique() does
+     * what you want if the list is not sorted, except for preserve ordering.
+     */
     static constexpr auto unique()
     {
         if constexpr (sizeof...(Types) == 0)
@@ -187,32 +232,32 @@ struct typeconst_list<T, Types...>
         }
     }
 
+    /// Append another list to this one, returning the new list.
     template <class... OtherTypes>
     static constexpr auto append(typeconst_list<OtherTypes...>)
     {
         return typeconst_list<T, Types..., OtherTypes...>();
     }
 
+    /// Retrieve the first element in the list.
     static constexpr auto head() { return T(); }
 
+    /// Retrieve all the elements of the list but the first.
     static constexpr auto tail() { return typeconst_list<Types...>(); }
 
+    /// Get the number of elements in the list.
     static constexpr auto count() { return 1 + sizeof...(Types); }
 
+    /// Return a list containing the types returned by applying `f` elementwise
+    /// to default-constructed instances of `Types...`.
     template <class F>
     static constexpr auto map(F&& f)
     {
-        if constexpr (count() == 1)
-        {
-            return make_list(std::forward<F>(f)(T()));
-        }
-        else
-        {
-            return make_list(std::forward<F>(f)(T())).append(tail().map(std::forward<F>(f)));
-        }
+        return make_list(std::forward<F>(f)(T()), std::forward<F>(f)(Types())...);
     }
 };
 
+/// Get the I-th element (0-based) from the list given.
 template <auto I, class... Types>
 constexpr auto get(typeconst_list<Types...> lst)
 {

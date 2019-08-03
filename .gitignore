@@ -5,3 +5,4 @@ Makefile
 test/Makefile
 test/runtests
 src/*.gch
+doc
