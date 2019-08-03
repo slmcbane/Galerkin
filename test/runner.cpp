@@ -10,3 +10,4 @@
 #include "../src/Rationals.hpp"
 #include "../src/Multinomials.hpp"
 #include "../src/Legendre.hpp"
+#include "../src/Quadrature.hpp"
