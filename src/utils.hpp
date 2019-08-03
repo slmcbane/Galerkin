@@ -7,11 +7,20 @@
 #ifndef UTILS_HPP
 #define UTILS_HPP
 
+/*!
+ * @file utils.hpp
+ * @brief Supporting utilities for the Galerkin library.
+ * @author Sean McBane <sean.mcbane@protonmail.com>
+ */
+
 #include <functional>
 #include <tuple>
 #include <type_traits>
 #include <utility>
 
+/*!
+ * @brief All library functionality is contained in the Galerkin namespace.
+ */
 namespace Galerkin
 {
 
@@ -35,15 +44,47 @@ namespace
     };
 }
 
+/// ntuple is a convenient alias for a tuple of N elements of the same type.
 template <class T, int N>
 using ntuple = typename ntuple_impl<T, N>::type;
 
+/// Template constant yields 1 cast to the given type.
 template <class T>
-constexpr T one() { return static_cast<T>(1); }
+constexpr T one = static_cast<T>(1);
 
+/// Template constant yields 0 cast to the given type.
 template <class T>
-constexpr T zero() { return static_cast<T>(0); }
+constexpr T zero = static_cast<T>(0);
 
+/*!
+ * @brief Do an arbitrary reduction on possibly compile-time expressions.
+ * 
+ * This performs the reduction
+ * 
+ *     auto y = x;
+ *     for (auto i = BEGIN; i < END; i += STEP)
+ *     {
+ *         y = c(y, f(i));
+ *     }
+ *     return y;
+ * 
+ * The above loop must be "type-stable", but this facility performs the operation
+ * in a recursive manner so the type of `y` might change every loop iteration.
+ * In addition, `f` receives the "loop index" as an `integral_constant` so that
+ * the function argument can be used to specify a template parameter (e.g. `std::get`).
+ * 
+ * Useful for doing sums and products with compile-time types like `Rational` and
+ * `Multinomial`.
+ * 
+ * @tparam BEGIN The initial value for the reduction loop
+ * @tparam END The end value for the reduction loop; range is `[BEGIN, END)`.
+ * @tparam STEP The increment between evaluations.
+ * @param f A generic callable object that accepts a `std::integral_constant`.
+ * @param x An initial value for the reduction - e.g. `zero<T>` for a sum or
+ * `one<T>` for a product.
+ * @param c A callable taking two objects `x` and `y` and returning a single
+ * value; for example, `operator+` to perform a summation.
+ */
 template <auto BEGIN, auto END, auto STEP, class F, class COMB, class T>
 constexpr auto static_reduce(F&& f, T x, COMB&& c)
 {

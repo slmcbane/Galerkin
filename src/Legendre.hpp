@@ -77,7 +77,7 @@ constexpr auto interval_root(P poly, T low, T high)
     auto pprime = Multinomials::partial<0>(poly);
     T mid = (high + low) / 2;
     constexpr auto abs = [] (auto x) { return x < 0 ? -x : x; };
-    while (poly(mid) != zero<T>())
+    while (poly(mid) != zero<T>)
     {
         auto delta = -poly(mid) / pprime(mid);
         if (abs(delta / mid) < 2 * std::numeric_limits<T>::epsilon())
@@ -100,12 +100,12 @@ constexpr auto all_roots()
     {
         auto extrema = all_roots<T, Order-1>();
         std::array<T, Order> my_roots { 0 };
-        my_roots[0] = interval_root(polynomial<Order>, -one<T>(), extrema[0]);
+        my_roots[0] = interval_root(polynomial<Order>, -one<T>, extrema[0]);
         for (int i = 1; i < Order-1; ++i)
         {
             my_roots[i] = interval_root(polynomial<Order>, extrema[i-1], extrema[i]);
         }
-        my_roots[Order-1] = interval_root(polynomial<Order>, extrema[Order-2], one<T>());
+        my_roots[Order-1] = interval_root(polynomial<Order>, extrema[Order-2], one<T>);
         return my_roots;
     }
 }

@@ -1,3 +1,9 @@
+/*
+ * Copyright (c) 2019, Sean McBane
+ * This file is part of the Galerkin library; Galerkin is copyright under the
+ * terms of the MIT license. Please see the top-level COPYRIGHT file for details.
+ */
+
 #ifndef QUADRATURE_HPP
 #define QUADRATURE_HPP
 
@@ -22,7 +28,7 @@ struct Rule
 template <class F, class T, auto N>
 constexpr auto integrate(F &&f, Rule<T, N> rule) noexcept
 {
-    auto x = zero<T>();
+    T x = zero<T>;
     for (int i = 0; i < N; ++i)
     {
         x += std::forward<F>(f)(rule.points[i]) * rule.weights[i];
@@ -75,7 +81,7 @@ TEST_CASE("Test compute points for Gauss-Legendre quadrature")
 template <class T, auto N>
 constexpr Rule<T, N> legendre_rule = Rule<T, N> { Legendre::roots<T, N>,
                                                   legendre_weights<T, N>(),
-                                                  std::array<T, 2>{-one<T>(), one<T>()} };
+                                                  std::array<T, 2>{-one<T>, one<T>} };
 
 /********************************************************************************
  * Test that an integral is computed accurately.
@@ -106,6 +112,21 @@ TEST_CASE("Test that integrals are computed exactly")
                        legendre_rule<double, 2> ) ==
             doctest::Approx(4.0)
         );
+    }
+
+    SUBCASE("Check the integral of an order 4 polynomial with 3 points")
+    {
+        constexpr auto f = [](double x)
+        {
+            return x*x*x*x + x*x*x + x*x + x + 1;
+        };
+
+        constexpr auto F = [](double x)
+        {
+            return x*x*x*x*x / 5 + x*x*x*x / 4 + x*x*x / 3 + x*x / 2 + x;
+        };
+
+        REQUIRE(integrate(f, legendre_rule<double, 3>) == doctest::Approx(F(1.0) - F(-1.0)));
     }
 }
 

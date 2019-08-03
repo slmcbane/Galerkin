@@ -24,7 +24,7 @@ typedef uint64_t rational_den_t;
 template <rational_num_t Num, rational_den_t Den>
 struct Rational
 {
-    static_assert(Den != zero<rational_den_t>());
+    static_assert(Den != zero<rational_den_t>);
 
     static constexpr auto num() { return Num; }
     static constexpr auto den() { return Den; }
