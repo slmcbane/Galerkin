@@ -7,6 +7,12 @@
 #ifndef RATIONALS_HPP
 #define RATIONALS_HPP
 
+/*!
+ * @file Rationals.hpp
+ * @brief Compile-time computations with rational numbers.
+ * @author Sean McBane <sean.mcbane@protonmail.com>
+ */
+
 #include <cstdint>
 #include <type_traits>
 
@@ -15,26 +21,54 @@
 namespace Galerkin
 {
 
+/// The `Rationals` namespace encapsulates all of the functionality for rational numbers
 namespace Rationals
 {
 
+/*!
+ * @brief The type used for the numerator in a rational. On gcc or clang this
+ * could be made a int128_t, but in practice compiler limits will be reached
+ * before overflow, anyway. Should be a signed type.
+ */
 typedef int64_t rational_num_t;
+
+/// The type used for the denominator in a rational. Should be an unsigned type.
 typedef uint64_t rational_den_t;
 
+/*!
+ * @brief Type representing a rational number at compile time.
+ * 
+ * `Rational` is used to do exact calculations of derivatives, Jacobians, etc.
+ * by manipulating rational numbers at compile time. The normal arithmetic
+ * operators are all defined for it, and it decays to a `double` as appropriate.
+ * Rather than use this class template, however, you should use the `rational`
+ * template constant from this header; instantiating `rational<N, D>`
+ * automatically reduces the resulting fraction to its simplest form.
+ */
 template <rational_num_t Num, rational_den_t Den>
 struct Rational
 {
     static_assert(Den != zero<rational_den_t>);
 
+    /// Get the numerator
     static constexpr auto num() { return Num; }
+    /// Get the denominator
     static constexpr auto den() { return Den; }
 
+    /*! @brief Convert the number to a double precision float, for when you have to
+     * do inexact floating point operations or run-time computation :(.
+     */
     constexpr operator double() const
     {
         return static_cast<double>(Num) / Den;
     }
 };
 
+/*!
+ * @brief Utility; find greatest common denominator of `a` and `b`. This will hit
+ * `constexpr` evaluation limits when `a` or `b` becomes large relative to the
+ * other.
+ */
 constexpr auto gcd(rational_num_t a, rational_den_t b)
 {
     if (a < 0)
@@ -65,6 +99,7 @@ constexpr auto gcd(rational_num_t a, rational_den_t b)
     return x;
 }
 
+/// Reduce a rational number to its simplest representation.
 template <rational_num_t N, rational_den_t D>
 constexpr auto reduce_rational(Rational<N, D>)
 {
@@ -72,6 +107,15 @@ constexpr auto reduce_rational(Rational<N, D>)
     return Rational<N / static_cast<rational_num_t>(div), D / div>();
 }
 
+/*!
+ * @brief Template constant for a compile-time rational.
+ * 
+ * This constant evaluates to a `Rational` reduced to its lowest terms. Default
+ * denominator is 1, so that an integer can be constructed by `rational<n>`.
+ * 
+ * @tparam N The numerator
+ * @tparam D The denominator. Default value: 1
+ */
 template <rational_num_t N, rational_den_t D = 1>
 constexpr auto rational = reduce_rational(Rational<N, D>());
 
@@ -185,12 +229,14 @@ constexpr auto operator/(Rational<N1, D1>, Rational<N2, D2>)
     }
 }
 
+/// A `Rational` * an `integral_constant` returns a `Rational`.
 template <auto N, auto D, class I, I v>
 constexpr auto operator*(Rational<N, D>, std::integral_constant<I, v>)
 {
     return rational<N, D> * rational<v>;
 }
 
+/// A `Rational` / an `integral_constant` returns a `Rational`.
 template <auto N, auto D, class I, I v>
 constexpr auto operator/(Rational<N, D>, std::integral_constant<I, v>)
 {
