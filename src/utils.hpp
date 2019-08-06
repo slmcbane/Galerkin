@@ -272,6 +272,13 @@ constexpr auto get(typeconst_list<Types...> lst)
     }
 }
 
+/// Test list equality; used in tests primarily.
+template <class... T1, class... T2>
+constexpr bool operator==(typeconst_list<T1...>, typeconst_list<T2...>) noexcept
+{
+    return std::is_same_v<typeconst_list<T1...>, typeconst_list<T2...>>;
+}
+
 } /* namespace Galerkin */
 
 #endif /* UTILS_HPP */

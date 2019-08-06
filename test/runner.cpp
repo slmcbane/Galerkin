@@ -11,3 +11,4 @@
 #include "../src/Multinomials.hpp"
 #include "../src/Legendre.hpp"
 #include "../src/Quadrature.hpp"
+#include "../src/MetaLinAlg.hpp"
