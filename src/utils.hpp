@@ -279,6 +279,20 @@ constexpr bool operator==(typeconst_list<T1...>, typeconst_list<T2...>) noexcept
     return std::is_same_v<typeconst_list<T1...>, typeconst_list<T2...>>;
 }
 
+/// Repeat an item N times to create a list.
+template <auto N, class T>
+constexpr auto repeatedly(T) noexcept
+{
+    if constexpr (N == 0)
+    {
+        return typeconst_list<>();
+    }
+    else
+    {
+        return typeconst_list<T>().append(repeatedly<N-1>(T()));
+    }
+}
+
 } /* namespace Galerkin */
 
 #endif /* UTILS_HPP */

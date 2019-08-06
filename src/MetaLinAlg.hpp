@@ -13,6 +13,7 @@
  */
 
 #include "utils.hpp"
+#include "Rationals.hpp"
 
 namespace Galerkin
 {
@@ -148,6 +149,7 @@ constexpr auto replace_row(Matrix<Rows...> mat, Row) noexcept
     }
 }
 
+/// Swap the rows given by indices `I` and `J` in the given matrix.
 template <auto I, auto J, class... Rows>
 constexpr auto swap_rows(Matrix<Rows...> mat)
 {
@@ -194,6 +196,111 @@ TEST_CASE("[Galerkin::MetaLinAlg] Swap matrix rows")
 /********************************************************************************
  * End test of row swap.
  *******************************************************************************/
+
+/*!
+ * @brief Find a row of the matrix with a non-zero on the given diagonal.
+ * 
+ * @tparam D The index of the column where we want a non-zero.
+ * @tparam FIRST The index of the first row where we will look.
+ */
+template <auto COL, auto FIRST, class... Rows>
+constexpr auto find_nonzero_entry(Matrix<Rows...>) noexcept
+{
+    static_assert(FIRST < sizeof...(Rows), "Non-zero pivot not found!");
+    constexpr auto first_row = get_row<FIRST>(Matrix<Rows...>());
+    if constexpr (get<COL>(first_row) != Rationals::rational<0>)
+    {
+        return FIRST;
+    }
+    else
+    {
+        return find_nonzero_entry<COL, FIRST+1>(Matrix<Rows...>());
+    }
+}
+
+/********************************************************************************
+ * Test the ability to find a row with non-zero diagonal element.
+ *******************************************************************************/
+
+#ifdef DOCTEST_LIBRARY_INCLUDED
+
+TEST_CASE("[Galerkin::MetaLinAlg] Find non-zero pivot element")
+{
+    constexpr auto mat = make_matrix(
+        make_row(rational<1, 1>, rational<0, 2>, rational<1, 3>),
+        make_row(rational<2, 1>, rational<0, 2>, rational<2, 3>),
+        make_row(rational<3, 1>, rational<3, 2>, rational<3, 3>)
+    );
+
+    REQUIRE(find_nonzero_entry<0, 0>(mat) == 0);
+    REQUIRE(find_nonzero_entry<1, 0>(mat) == 2);
+    REQUIRE(find_nonzero_entry<0, 1>(mat) == 1);
+    REQUIRE(find_nonzero_entry<1, 1>(mat) == 2);
+}
+
+#endif /* DOCTEST_LIBRARY_INCLUDED */
+
+/********************************************************************************
+ *******************************************************************************/
+
+template <auto I, auto N, auto D, class... Nums>
+constexpr auto set_element(MatrixRow<Nums...> row,
+                           Rationals::Rational<N, D> r) noexcept
+{
+    static_assert(I >= 0 && I < sizeof...(Nums));
+    if constexpr (I == 0)
+    {
+        return MatrixRow<Rationals::Rational<N, D>>().append(row.tail());
+    }
+    else
+    {
+        return make_row(row.head()).append(set_element<I-1>(row.tail(), r));
+    }
+}
+
+template <auto I>
+constexpr auto make_identity()
+{
+    constexpr auto zero_row = repeatedly<I>(Rationals::rational<0>);
+    return static_reduce<0, I, 1>(
+        [=](auto J) {
+            return set_element<J()>(zero_row, Rationals::rational<1>);
+        },
+        MatrixRow<>(),
+        [](auto rows, auto row) {
+            return rows.append(make_list(row));
+        }
+    );
+}
+
+template <auto I>
+constexpr auto eye = make_identity<I>();
+
+/********************************************************************************
+ * Test eliminating a row from a matrix (in the LU process). Rather than do this
+ * in place I keep a separate L and U around for ease of implementation.
+ *******************************************************************************/
+
+#ifdef DOCTEST_LIBRARY_INCLUDED
+
+TEST_CASE("[Galerkin::MetaLinAlg] Test the identity function")
+{
+    REQUIRE(eye<3> == make_matrix(
+        make_row(rational<1>, rational<0>, rational<0>),
+        make_row(rational<0>, rational<1>, rational<0>),
+        make_row(rational<0>, rational<0>, rational<1>)
+    ));
+}
+
+TEST_CASE("[Galerkin::MetaLinAlg] Do row elimination on L and U factors")
+{
+    SUBCASE("A simple 2 x 2 matrix")
+    {
+
+    }
+}
+
+#endif /* DOCTEST_LIBRARY_INCLUDED */
 
 } /* namespace Galerkin */
 
