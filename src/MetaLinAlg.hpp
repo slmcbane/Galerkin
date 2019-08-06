@@ -133,6 +133,68 @@ TEST_CASE("[Galerkin::MetaLinAlg] Construct a MetaMatrix, access elements and ro
  * End of very basic matrix API tests.
  *******************************************************************************/
 
+/// Replace row I (0-based) with given row in the matrix.
+template <auto I, class Row, class... Rows>
+constexpr auto replace_row(Matrix<Rows...> mat, Row) noexcept
+{
+    static_assert(I >= 0 && I < mat.count());
+    if constexpr (I == 0)
+    {
+        return Matrix<Row>().append(mat.tail());
+    }
+    else
+    {
+        return make_matrix(mat.head()).append(replace_row<I-1>(mat.tail(), Row()));
+    }
+}
+
+template <auto I, auto J, class... Rows>
+constexpr auto swap_rows(Matrix<Rows...> mat)
+{
+    if constexpr (I > J)
+    {
+        return swap_rows<J, I>(Matrix<Rows...>());
+    }
+    else
+    {
+        if constexpr (I == 0)
+        {
+            return make_matrix(get_row<J>(mat)).append(replace_row<J-1>(mat.tail(), mat.head()));
+        }
+        else
+        {
+            return make_matrix(mat.head()).append(swap_rows<I-1, J-1>(mat.tail()));
+        }
+    }
+    
+}
+
+/********************************************************************************
+ * Test swapping 2 matrix rows; needed for LU pivoting when required.
+ *******************************************************************************/
+
+#ifdef DOCTEST_LIBRARY_INCLUDED
+
+TEST_CASE("[Galerkin::MetaLinAlg] Swap matrix rows")
+{
+    constexpr auto mat = make_matrix(
+        make_row(rational<1, 1>, rational<1, 2>, rational<1, 3>),
+        make_row(rational<2, 1>, rational<2, 2>, rational<2, 3>),
+        make_row(rational<3, 1>, rational<3, 2>, rational<3, 3>)
+    );
+
+    constexpr auto swapped = swap_rows<1, 2>(mat);
+    REQUIRE(get_row<2>(swapped) == get_row<1>(mat));
+    REQUIRE(get_row<1>(swapped) == get_row<2>(mat));
+    REQUIRE(get_row<0>(swapped) == get_row<0>(mat));
+}
+
+#endif /* DOCTEST_LIBRARY_INCLUDED */
+
+/********************************************************************************
+ * End test of row swap.
+ *******************************************************************************/
+
 } /* namespace Galerkin */
 
 } /* namespace MetaLinAlg */
