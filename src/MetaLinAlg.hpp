@@ -350,6 +350,28 @@ TEST_CASE("[Galerkin::MetaLinAlg] Do row elimination on L and U factors")
             MatrixRow<Rational<1, 1>, Rational<0, 1>>,
             MatrixRow<Rational<1, 2>, Rational<1, 1>>>());
     }
+
+    SUBCASE("A 3 x 3 matrix")
+    {
+        constexpr auto A = make_matrix(
+            make_row(rational<2>, -rational<1>, rational<3>),
+            make_row(rational<4>, rational<2>, rational<1>),
+            make_row(-rational<6>, -rational<1>, rational<2>)
+        );
+
+        auto [L0, U0] = eliminate_row<0, 1>(A, eye<3>);
+        auto [L, U]   = eliminate_row<0, 2>(L0, U0);
+        REQUIRE(L == make_matrix(
+            make_row(rational<2>, -rational<1>, rational<3>),
+            make_row(rational<0>, rational<4>, rational<-5>),
+            make_row(rational<0>, rational<-4>, rational<11>)
+        ));
+        REQUIRE(U == make_matrix(
+            make_row(rational<1>, rational<0>, rational<0>),
+            make_row(rational<2>, rational<1>, rational<0>),
+            make_row(rational<-3>, rational<0>, rational<1>)
+        ));
+    }
 }
 
 #endif /* DOCTEST_LIBRARY_INCLUDED */
