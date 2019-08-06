@@ -15,6 +15,8 @@
 #include "utils.hpp"
 #include "Rationals.hpp"
 
+#include <tuple>
+
 namespace Galerkin
 {
 
@@ -245,7 +247,7 @@ TEST_CASE("[Galerkin::MetaLinAlg] Find non-zero pivot element")
 
 template <auto I, auto N, auto D, class... Nums>
 constexpr auto set_element(MatrixRow<Nums...> row,
-                           Rationals::Rational<N, D> r) noexcept
+                           Rationals::Rational<N, D>) noexcept
 {
     static_assert(I >= 0 && I < sizeof...(Nums));
     if constexpr (I == 0)
@@ -254,13 +256,15 @@ constexpr auto set_element(MatrixRow<Nums...> row,
     }
     else
     {
-        return make_row(row.head()).append(set_element<I-1>(row.tail(), r));
+        return make_row(row.head()).append(set_element<I-1>(row.tail(),
+                                                            Rationals::Rational<N, D>()));
     }
 }
 
 template <auto I>
 constexpr auto make_identity()
 {
+    [[maybe_unused]]
     constexpr auto zero_row = repeatedly<I>(Rationals::rational<0>);
     return static_reduce<0, I, 1>(
         [=](auto J) {
@@ -275,6 +279,43 @@ constexpr auto make_identity()
 
 template <auto I>
 constexpr auto eye = make_identity<I>();
+
+template <auto I, class Num, class... Row1Nums, class... Row2Nums>
+constexpr auto add_row_helper(Num, MatrixRow<Row1Nums...>,
+                              MatrixRow<Row2Nums...>) noexcept
+{
+    if constexpr (I == sizeof...(Row1Nums))
+    {
+        return Matrix<Row2Nums...>();
+    }
+    else
+    {
+        constexpr auto y = Matrix<Row2Nums...>();
+        constexpr auto elt = get<I>(MatrixRow<Row1Nums...>()) * Num();
+        constexpr auto row = set_element<I>(y, get<I>(y) + elt);
+        return add_row_helper<I+1>(Num(), MatrixRow<Row1Nums...>(), row);
+    }
+}
+
+template <class Num, class... Row1Nums, class... Row2Nums>
+constexpr auto add_row_with_mult(Num a, MatrixRow<Row1Nums...> x,
+                                 MatrixRow<Row2Nums...> y) noexcept
+{
+    static_assert(sizeof...(Row1Nums) == sizeof...(Row2Nums));
+    return add_row_helper<0>(a, x, y);
+}
+
+template <auto I, auto J, class... URows, class... LRows>
+constexpr auto eliminate_row(Matrix<URows...> U, Matrix<LRows...> L)
+{
+    static_assert(J > I);
+    auto mult = get_elt<J, I>(U) / get_elt<I, I>(U);
+    auto newurow = add_row_with_mult(-mult, get_row<I>(U), get_row<J>(U));
+    auto newu = replace_row<J>(U, newurow);
+
+    auto newl = replace_row<J>(L, set_element<I>(get_row<J>(L), mult));
+    return std::make_tuple(newu, newl);
+}
 
 /********************************************************************************
  * Test eliminating a row from a matrix (in the LU process). Rather than do this
@@ -296,7 +337,18 @@ TEST_CASE("[Galerkin::MetaLinAlg] Do row elimination on L and U factors")
 {
     SUBCASE("A simple 2 x 2 matrix")
     {
+        constexpr auto L = make_matrix(
+            make_row(rational<2>, rational<3>),
+            make_row(rational<1>, rational<4>)
+        );
 
+        auto [L1, U] = eliminate_row<0, 1>(L, eye<2>);
+        REQUIRE(L1 == Matrix<
+            MatrixRow<Rational<2, 1>, Rational<3, 1>>,
+            MatrixRow<Rational<0, 1>, Rational<5, 2>>>());
+        REQUIRE(U == Matrix<
+            MatrixRow<Rational<1, 1>, Rational<0, 1>>,
+            MatrixRow<Rational<1, 2>, Rational<1, 1>>>());
     }
 }
 
