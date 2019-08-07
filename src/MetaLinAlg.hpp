@@ -109,8 +109,7 @@ TEST_CASE("[Galerkin::MetaLinAlg] Construct a MetaMatrix, access elements and ro
 {
     constexpr auto mat = Matrix<
         MatrixRow<Rational<1, 2>, Rational<1, 3>>,
-        MatrixRow<Rational<1, 3>, Rational<1, 2>>
-    >();
+        MatrixRow<Rational<1, 3>, Rational<1, 2>>>();
 
     constexpr auto mat2 = make_matrix(make_row(rational<1, 2>, rational<2, 6>),
                                       make_row(rational<3, 9>, rational<1, 2>));
@@ -147,7 +146,7 @@ constexpr auto replace_row(Matrix<Rows...> mat, Row) noexcept
     }
     else
     {
-        return make_matrix(mat.head()).append(replace_row<I-1>(mat.tail(), Row()));
+        return make_matrix(mat.head()).append(replace_row<I - 1>(mat.tail(), Row()));
     }
 }
 
@@ -163,14 +162,13 @@ constexpr auto swap_rows(Matrix<Rows...> mat)
     {
         if constexpr (I == 0)
         {
-            return make_matrix(get_row<J>(mat)).append(replace_row<J-1>(mat.tail(), mat.head()));
+            return make_matrix(get_row<J>(mat)).append(replace_row<J - 1>(mat.tail(), mat.head()));
         }
         else
         {
-            return make_matrix(mat.head()).append(swap_rows<I-1, J-1>(mat.tail()));
+            return make_matrix(mat.head()).append(swap_rows<I - 1, J - 1>(mat.tail()));
         }
     }
-    
 }
 
 /********************************************************************************
@@ -184,8 +182,7 @@ TEST_CASE("[Galerkin::MetaLinAlg] Swap matrix rows")
     constexpr auto mat = make_matrix(
         make_row(rational<1, 1>, rational<1, 2>, rational<1, 3>),
         make_row(rational<2, 1>, rational<2, 2>, rational<2, 3>),
-        make_row(rational<3, 1>, rational<3, 2>, rational<3, 3>)
-    );
+        make_row(rational<3, 1>, rational<3, 2>, rational<3, 3>));
 
     constexpr auto swapped = swap_rows<1, 2>(mat);
     REQUIRE(get_row<2>(swapped) == get_row<1>(mat));
@@ -216,7 +213,7 @@ constexpr auto find_nonzero_entry(Matrix<Rows...>) noexcept
     }
     else
     {
-        return find_nonzero_entry<COL, FIRST+1>(Matrix<Rows...>());
+        return find_nonzero_entry<COL, FIRST + 1>(Matrix<Rows...>());
     }
 }
 
@@ -231,8 +228,7 @@ TEST_CASE("[Galerkin::MetaLinAlg] Find non-zero pivot element")
     constexpr auto mat = make_matrix(
         make_row(rational<1, 1>, rational<0, 2>, rational<1, 3>),
         make_row(rational<2, 1>, rational<0, 2>, rational<2, 3>),
-        make_row(rational<3, 1>, rational<3, 2>, rational<3, 3>)
-    );
+        make_row(rational<3, 1>, rational<3, 2>, rational<3, 3>));
 
     REQUIRE(find_nonzero_entry<0, 0>(mat) == 0);
     REQUIRE(find_nonzero_entry<1, 0>(mat) == 2);
@@ -256,16 +252,14 @@ constexpr auto set_element(MatrixRow<Nums...> row,
     }
     else
     {
-        return make_row(row.head()).append(set_element<I-1>(row.tail(),
-                                                            Rationals::Rational<N, D>()));
+        return make_row(row.head()).append(set_element<I - 1>(row.tail(), Rationals::Rational<N, D>()));
     }
 }
 
 template <auto I>
 constexpr auto make_identity()
 {
-    [[maybe_unused]]
-    constexpr auto zero_row = repeatedly<I>(Rationals::rational<0>);
+    [[maybe_unused]] constexpr auto zero_row = repeatedly<I>(Rationals::rational<0>);
     return static_reduce<0, I, 1>(
         [=](auto J) {
             return set_element<J()>(zero_row, Rationals::rational<1>);
@@ -273,8 +267,7 @@ constexpr auto make_identity()
         MatrixRow<>(),
         [](auto rows, auto row) {
             return rows.append(make_list(row));
-        }
-    );
+        });
 }
 
 template <auto I>
@@ -293,7 +286,7 @@ constexpr auto add_row_helper(Num, MatrixRow<Row1Nums...>,
         constexpr auto y = Matrix<Row2Nums...>();
         constexpr auto elt = get<I>(MatrixRow<Row1Nums...>()) * Num();
         constexpr auto row = set_element<I>(y, get<I>(y) + elt);
-        return add_row_helper<I+1>(Num(), MatrixRow<Row1Nums...>(), row);
+        return add_row_helper<I + 1>(Num(), MatrixRow<Row1Nums...>(), row);
     }
 }
 
@@ -327,10 +320,9 @@ constexpr auto eliminate_row(Matrix<URows...> U, Matrix<LRows...> L)
 TEST_CASE("[Galerkin::MetaLinAlg] Test the identity function")
 {
     REQUIRE(eye<3> == make_matrix(
-        make_row(rational<1>, rational<0>, rational<0>),
-        make_row(rational<0>, rational<1>, rational<0>),
-        make_row(rational<0>, rational<0>, rational<1>)
-    ));
+                          make_row(rational<1>, rational<0>, rational<0>),
+                          make_row(rational<0>, rational<1>, rational<0>),
+                          make_row(rational<0>, rational<0>, rational<1>)));
 }
 
 TEST_CASE("[Galerkin::MetaLinAlg] Do row elimination on L and U factors")
@@ -339,16 +331,15 @@ TEST_CASE("[Galerkin::MetaLinAlg] Do row elimination on L and U factors")
     {
         constexpr auto L = make_matrix(
             make_row(rational<2>, rational<3>),
-            make_row(rational<1>, rational<4>)
-        );
+            make_row(rational<1>, rational<4>));
 
         auto [L1, U] = eliminate_row<0, 1>(L, eye<2>);
         REQUIRE(L1 == Matrix<
-            MatrixRow<Rational<2, 1>, Rational<3, 1>>,
-            MatrixRow<Rational<0, 1>, Rational<5, 2>>>());
+                          MatrixRow<Rational<2, 1>, Rational<3, 1>>,
+                          MatrixRow<Rational<0, 1>, Rational<5, 2>>>());
         REQUIRE(U == Matrix<
-            MatrixRow<Rational<1, 1>, Rational<0, 1>>,
-            MatrixRow<Rational<1, 2>, Rational<1, 1>>>());
+                         MatrixRow<Rational<1, 1>, Rational<0, 1>>,
+                         MatrixRow<Rational<1, 2>, Rational<1, 1>>>());
     }
 
     SUBCASE("A 3 x 3 matrix")
@@ -356,28 +347,124 @@ TEST_CASE("[Galerkin::MetaLinAlg] Do row elimination on L and U factors")
         constexpr auto A = make_matrix(
             make_row(rational<2>, -rational<1>, rational<3>),
             make_row(rational<4>, rational<2>, rational<1>),
-            make_row(-rational<6>, -rational<1>, rational<2>)
-        );
+            make_row(-rational<6>, -rational<1>, rational<2>));
 
         auto [L0, U0] = eliminate_row<0, 1>(A, eye<3>);
-        auto [L, U]   = eliminate_row<0, 2>(L0, U0);
+        auto [L, U] = eliminate_row<0, 2>(L0, U0);
         REQUIRE(L == make_matrix(
-            make_row(rational<2>, -rational<1>, rational<3>),
-            make_row(rational<0>, rational<4>, rational<-5>),
-            make_row(rational<0>, rational<-4>, rational<11>)
-        ));
+                         make_row(rational<2>, -rational<1>, rational<3>),
+                         make_row(rational<0>, rational<4>, rational<-5>),
+                         make_row(rational<0>, rational<-4>, rational<11>)));
         REQUIRE(U == make_matrix(
-            make_row(rational<1>, rational<0>, rational<0>),
-            make_row(rational<2>, rational<1>, rational<0>),
-            make_row(rational<-3>, rational<0>, rational<1>)
-        ));
+                         make_row(rational<1>, rational<0>, rational<0>),
+                         make_row(rational<2>, rational<1>, rational<0>),
+                         make_row(rational<-3>, rational<0>, rational<1>)));
     }
 }
 
 #endif /* DOCTEST_LIBRARY_INCLUDED */
 
-} /* namespace Galerkin */
+/********************************************************************************
+ *******************************************************************************/
 
-} /* namespace MetaLinAlg */
+template <int M, int N, class... URows, class... LRows>
+constexpr auto do_row_elimination(Matrix<URows...>, Matrix<LRows...>)
+{
+    if constexpr (N == sizeof...(URows))
+    {
+        return std::make_tuple(Matrix<URows...>(), Matrix<LRows...>());
+    }
+    else
+    {
+        auto [U, L] = eliminate_row<M, N>(Matrix<URows...>(), Matrix<LRows...>());
+        return do_row_elimination<M, N+1>(U, L);
+    }
+}
+
+template <class... URows, class... LRows, int... swaps, int M>
+constexpr auto factorize(Matrix<URows...>, Matrix<LRows...>,
+                         typeconst_list<std::integral_constant<int, swaps>...>,
+                         std::integral_constant<int, M>) noexcept
+{
+    if constexpr (M == sizeof...(URows) - 1)
+    {
+        return std::make_tuple(Matrix<LRows...>(), Matrix<URows...>(),
+                               typeconst_list<std::integral_constant<int, swaps>...>());
+    }
+    else
+    {
+
+        constexpr auto swap = find_nonzero_entry<M, M>(Matrix<URows...>());
+        if constexpr (swap != M)
+        {
+            constexpr auto U = swap_rows<M, swap>(Matrix<URows...>());
+            constexpr auto P = typeconst_list<std::integral_constant<int, swaps>...,
+                                              std::integral_constant<int, swap>>();
+            return factorize(U, Matrix<LRows...>(), P, std::integral_constant<int, M>());
+        }
+        else
+        {
+            auto [U, L] = do_row_elimination<M, M+1>(Matrix<URows...>(), Matrix<LRows...>());
+            if constexpr (sizeof...(swaps) == M)
+            {
+                constexpr auto P = typeconst_list<std::integral_constant<int, swaps>...,
+                                                  std::integral_constant<int, M>>();
+                return factorize(U, L, P, std::integral_constant<int, M+1>());
+            }
+            else
+            {
+                constexpr auto P = typeconst_list<std::integral_constant<int, swaps>...>();
+                return factorize(U, L, P, std::integral_constant<int, M+1>());
+            }
+        }
+    }
+}
+
+template <class... Rows>
+constexpr auto factorize(Matrix<Rows...>) noexcept
+{
+    constexpr auto U = Matrix<Rows...>();
+    constexpr auto L = eye<sizeof...(Rows)>;
+    constexpr auto P = typeconst_list<>();
+    return factorize(U, L, P, std::integral_constant<int, 0>());
+}
+
+/********************************************************************************
+ * Test LU factorization with pivoting to fix zero diagonals.
+ *******************************************************************************/
+#ifdef DOCTEST_LIBRARY_INCLUDED
+
+TEST_CASE("[Galerkin::MetaLinAlg] Test LU factorization")
+{
+    SUBCASE("Test a matrix that doesn't require pivoting")
+    {
+        constexpr auto A = make_matrix(
+            make_row(rational<2>, rational<-1>, rational<3>),
+            make_row(rational<4>, rational<2>, rational<1>),
+            make_row(rational<-6>, rational<-1>, rational<2>));
+
+        auto [L, U, P] = factorize(A);
+
+        REQUIRE(L == make_matrix(
+                         make_row(rational<1>, rational<0>, rational<0>),
+                         make_row(rational<2>, rational<1>, rational<0>),
+                         make_row(rational<-3>, rational<-1>, rational<1>)));
+
+        REQUIRE(U == make_matrix(
+                         make_row(rational<2>, -rational<1>, rational<3>),
+                         make_row(rational<0>, rational<4>, -rational<5>),
+                         make_row(rational<0>, rational<0>, rational<6>)));
+
+        REQUIRE(P == make_list(
+                         std::integral_constant<int, 0>(),
+                         std::integral_constant<int, 1>()));
+    }
+}
+
+#endif /* DOCTEST_LIBRARY_INCLUDED */
+
+} // namespace MetaLinAlg
+
+} // namespace Galerkin
 
 #endif /* METALINALG_HPP */
