@@ -408,7 +408,6 @@ TEST_CASE("[Galerkin::MetaLinAlg] Test LU factorization")
             make_row(rational<4>, rational<2>, rational<1>),
             make_row(rational<-6>, rational<-1>, rational<2>));
 
-        // auto [L, U, P] = factorize(A);
         auto [LU, P] = factorize(A);
 
         REQUIRE(LU == make_matrix(
@@ -424,7 +423,27 @@ TEST_CASE("[Galerkin::MetaLinAlg] Test LU factorization")
 
     SUBCASE("A more difficult case with pivoting")
     {
-        
+        constexpr auto A = make_matrix(
+            make_row(rational<1>, rational<2>, rational<1>, rational<0>),
+            make_row(rational<0>, rational<0>, rational<3>, rational<1>),
+            make_row(rational<5>, rational<0>, rational<2>, rational<3>),
+            make_row(rational<1>, rational<1>, rational<1>, rational<1>)
+        );
+
+        auto [LU, P] = factorize(A);
+
+        REQUIRE(LU == make_matrix(
+            make_row(rational<1>, rational<2>, rational<1>, rational<0>),
+            make_row(rational<5>, -rational<10>, -rational<3>, rational<3>),
+            make_row(rational<0>, rational<0>, rational<3>, rational<1>),
+            make_row(rational<1>, rational<1, 10>, rational<1, 10>, rational<3, 5>)
+        ));
+
+        REQUIRE(P == make_list(
+            std::integral_constant<int, 0>(),
+            std::integral_constant<int, 2>(),
+            std::integral_constant<int, 2>()
+        ));
     }
 }
 
