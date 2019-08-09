@@ -266,7 +266,7 @@ constexpr auto eliminate_row_helper(Matrix<Rows...>, Row, std::integral_constant
     if constexpr (K == I)
     {
         constexpr auto newrow = set_element<I>(row, mult);
-        return eliminate_row_helper<I, J>(A, newrow, std::integral_constant<int, K+1>());
+        return eliminate_row_helper<I, J>(A, newrow, std::integral_constant<int, K + 1>());
     }
     else if constexpr (K == sizeof...(Rows))
     {
@@ -275,8 +275,8 @@ constexpr auto eliminate_row_helper(Matrix<Rows...>, Row, std::integral_constant
     else
     {
         constexpr auto newrow = set_element<K>(row,
-            get_elt<J, K>(A) - get_elt<I, K>(A) * mult);
-        return eliminate_row_helper<I, J>(A, newrow, std::integral_constant<int, K+1>());
+                                               get_elt<J, K>(A) - get_elt<I, K>(A) * mult);
+        return eliminate_row_helper<I, J>(A, newrow, std::integral_constant<int, K + 1>());
     }
 }
 
@@ -307,8 +307,8 @@ TEST_CASE("[Galerkin::MetaLinAlg] Do row elimination on L and U factors")
 
         auto LU = eliminate_row<0, 1>(A);
         REQUIRE(LU == Matrix<
-                             MatrixRow<Rational<2, 1>, Rational<3, 1>>,
-                             MatrixRow<Rational<1, 2>, Rational<5, 2>>>());
+                          MatrixRow<Rational<2, 1>, Rational<3, 1>>,
+                          MatrixRow<Rational<1, 2>, Rational<5, 2>>>());
     }
 
     SUBCASE("A 3 x 3 matrix")
@@ -320,10 +320,9 @@ TEST_CASE("[Galerkin::MetaLinAlg] Do row elimination on L and U factors")
 
         auto LU = eliminate_row<0, 2>(eliminate_row<0, 1>(A));
         REQUIRE(LU == make_matrix(
-            make_row(rational<2>, -rational<1>, rational<3>),
-            make_row(rational<2>, rational<4>, -rational<5>),
-            make_row(-rational<3>, -rational<4>, rational<11>)
-        ));
+                          make_row(rational<2>, -rational<1>, rational<3>),
+                          make_row(rational<2>, rational<4>, -rational<5>),
+                          make_row(-rational<3>, -rational<4>, rational<11>)));
     }
 }
 
@@ -342,7 +341,7 @@ constexpr auto do_row_elimination(Matrix<Rows...>) noexcept
     else
     {
         constexpr auto LU = eliminate_row<M, N>(Matrix<Rows...>());
-        return do_row_elimination<M, N+1>(LU);
+        return do_row_elimination<M, N + 1>(LU);
     }
 }
 
@@ -368,20 +367,20 @@ constexpr auto factorize(Matrix<Rows...>,
         }
         else
         {
-            constexpr auto LU = do_row_elimination<M, M+1>(Matrix<Rows...>());
+            constexpr auto LU = do_row_elimination<M, M + 1>(Matrix<Rows...>());
             // If number of swaps is the same as M we didn't do a swap for this
             // row yet; add the index of this row to swaps (indicates no swap).
             if constexpr (sizeof...(swaps) == M)
             {
                 constexpr auto P = typeconst_list<std::integral_constant<int, swaps>...,
                                                   std::integral_constant<int, M>>();
-                return factorize(LU, P, std::integral_constant<int, M+1>());
+                return factorize(LU, P, std::integral_constant<int, M + 1>());
             }
             // otherwise, we did a swap and should not add anything to the swaps
             else
             {
                 constexpr auto P = typeconst_list<std::integral_constant<int, swaps>...>();
-                return factorize(LU, P, std::integral_constant<int, M+1>());
+                return factorize(LU, P, std::integral_constant<int, M + 1>());
             }
         }
     }
@@ -411,14 +410,13 @@ TEST_CASE("[Galerkin::MetaLinAlg] Test LU factorization")
         auto [LU, P] = factorize(A);
 
         REQUIRE(LU == make_matrix(
-            make_row(rational<2>, -rational<1>, rational<3>),
-            make_row(rational<2>, rational<4>, -rational<5>),
-            make_row(-rational<3>, -rational<1>, rational<6>)
-        ));
+                          make_row(rational<2>, -rational<1>, rational<3>),
+                          make_row(rational<2>, rational<4>, -rational<5>),
+                          make_row(-rational<3>, -rational<1>, rational<6>)));
 
         REQUIRE(P == make_list(
-            std::integral_constant<int, 0>(),
-            std::integral_constant<int, 1>()));
+                         std::integral_constant<int, 0>(),
+                         std::integral_constant<int, 1>()));
     }
 
     SUBCASE("A more difficult case with pivoting")
@@ -427,27 +425,107 @@ TEST_CASE("[Galerkin::MetaLinAlg] Test LU factorization")
             make_row(rational<1>, rational<2>, rational<1>, rational<0>),
             make_row(rational<0>, rational<0>, rational<3>, rational<1>),
             make_row(rational<5>, rational<0>, rational<2>, rational<3>),
-            make_row(rational<1>, rational<1>, rational<1>, rational<1>)
-        );
+            make_row(rational<1>, rational<1>, rational<1>, rational<1>));
 
         auto [LU, P] = factorize(A);
 
         REQUIRE(LU == make_matrix(
-            make_row(rational<1>, rational<2>, rational<1>, rational<0>),
-            make_row(rational<5>, -rational<10>, -rational<3>, rational<3>),
-            make_row(rational<0>, rational<0>, rational<3>, rational<1>),
-            make_row(rational<1>, rational<1, 10>, rational<1, 10>, rational<3, 5>)
-        ));
+                          make_row(rational<1>, rational<2>, rational<1>, rational<0>),
+                          make_row(rational<5>, -rational<10>, -rational<3>, rational<3>),
+                          make_row(rational<0>, rational<0>, rational<3>, rational<1>),
+                          make_row(rational<1>, rational<1, 10>, rational<1, 10>, rational<3, 5>)));
 
         REQUIRE(P == make_list(
-            std::integral_constant<int, 0>(),
-            std::integral_constant<int, 2>(),
-            std::integral_constant<int, 2>()
-        ));
+                         std::integral_constant<int, 0>(),
+                         std::integral_constant<int, 2>(),
+                         std::integral_constant<int, 2>()));
     }
 }
 
 #endif /* DOCTEST_LIBRARY_INCLUDED */
+
+/********************************************************************************
+ *******************************************************************************/
+
+template <auto M, int... swaps, class Row>
+constexpr auto undo_swaps(typeconst_list<std::integral_constant<int, swaps>...>,
+                          Row)
+{
+    constexpr auto lst = typeconst_list<std::integral_constant<int, swaps>...>();
+    constexpr auto swap = get<M>(lst)();
+    if constexpr (swap != M)
+    {
+        // swap_rows was defined on a `Matrix` but `Matrix` is just a typedef of
+        // typeconst_list so it will work just as well here.
+        constexpr auto row = swap_rows<M, swap>(Row());
+        if constexpr (M == 0)
+        {
+            return row;
+        }
+        else
+        {
+            return undo_swaps<M - 1>(lst, row);
+        }
+    }
+    else
+    {
+        if constexpr (M == 0)
+        {
+            return Row();
+        }
+        else
+        {
+            return undo_swaps<M - 1>(lst, Row());
+        }
+    }
+}
+
+template <int... swaps, class Row>
+constexpr auto invert_permutation(typeconst_list<std::integral_constant<int, swaps>...>,
+                                  Row)
+{
+    static_assert(sizeof...(swaps) == Row().count() - 1);
+    return undo_swaps<sizeof...(swaps) - 1>(
+        typeconst_list<std::integral_constant<int, swaps>...>(), Row());
+}
+
+template <class... Rows, class Row>
+constexpr auto linear_solve(Matrix<Rows...>, Row)
+{
+    constexpr auto factorization = factorize(Matrix<Rows...>());
+    constexpr auto LU = std::get<0>(factorization);
+    constexpr auto P = std::get<1>(factorization);
+
+    constexpr auto rhs = invert_permutation(P, Row());
+    return backsub(LU, rhs);
+}
+
+/********************************************************************************
+ * Test a linear equation solve using LU factorization.
+ *******************************************************************************/
+
+#ifdef DOCTEST_LIBRARY_INCLUDED
+
+TEST_CASE("[Galerkin::MetaLinAlg] Test full linear solve")
+{
+    constexpr auto A = make_matrix(
+        make_row(rational<1>, rational<2>, rational<1>, rational<0>),
+        make_row(rational<0>, rational<0>, rational<3>, rational<1>),
+        make_row(rational<5>, rational<0>, rational<2>, rational<3>),
+        make_row(rational<1>, rational<1>, rational<1>, rational<1>));
+    constexpr auto b = make_row(
+        rational<1>, rational<1>, rational<1>, rational<1>);
+
+    constexpr auto x = linear_solve(A, b);
+
+    REQUIRE(x == make_row(
+                     -rational<1, 6>, rational<1, 2>, rational<1, 6>, rational<1, 2>));
+}
+
+#endif /* DOCTEST_LIBRARY_INCLUDED */
+
+/********************************************************************************
+ *******************************************************************************/
 
 } // namespace MetaLinAlg
 
