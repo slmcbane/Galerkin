@@ -256,60 +256,6 @@ constexpr auto set_element(MatrixRow<Nums...> row,
     }
 }
 
-template <auto I>
-constexpr auto make_identity()
-{
-    [[maybe_unused]] constexpr auto zero_row = repeatedly<I>(Rationals::rational<0>);
-    return static_reduce<0, I, 1>(
-        [=](auto J) {
-            return set_element<J()>(zero_row, Rationals::rational<1>);
-        },
-        MatrixRow<>(),
-        [](auto rows, auto row) {
-            return rows.append(make_list(row));
-        });
-}
-
-template <auto I>
-constexpr auto eye = make_identity<I>();
-
-template <auto I, class Num, class... Row1Nums, class... Row2Nums>
-constexpr auto add_row_helper(Num, MatrixRow<Row1Nums...>,
-                              MatrixRow<Row2Nums...>) noexcept
-{
-    if constexpr (I == sizeof...(Row1Nums))
-    {
-        return Matrix<Row2Nums...>();
-    }
-    else
-    {
-        constexpr auto y = Matrix<Row2Nums...>();
-        constexpr auto elt = get<I>(MatrixRow<Row1Nums...>()) * Num();
-        constexpr auto row = set_element<I>(y, get<I>(y) + elt);
-        return add_row_helper<I + 1>(Num(), MatrixRow<Row1Nums...>(), row);
-    }
-}
-
-template <class Num, class... Row1Nums, class... Row2Nums>
-constexpr auto add_row_with_mult(Num a, MatrixRow<Row1Nums...> x,
-                                 MatrixRow<Row2Nums...> y) noexcept
-{
-    static_assert(sizeof...(Row1Nums) == sizeof...(Row2Nums));
-    return add_row_helper<0>(a, x, y);
-}
-
-template <auto I, auto J, class... URows, class... LRows>
-constexpr auto eliminate_row(Matrix<URows...> U, Matrix<LRows...> L)
-{
-    static_assert(J > I);
-    auto mult = get_elt<J, I>(U) / get_elt<I, I>(U);
-    auto newurow = add_row_with_mult(-mult, get_row<I>(U), get_row<J>(U));
-    auto newu = replace_row<J>(U, newurow);
-
-    auto newl = replace_row<J>(L, set_element<I>(get_row<J>(L), mult));
-    return std::make_tuple(newu, newl);
-}
-
 template <auto I, auto J, int K, class Row, class... Rows>
 constexpr auto eliminate_row_helper(Matrix<Rows...>, Row, std::integral_constant<int, K>)
 {
@@ -351,14 +297,6 @@ constexpr auto eliminate_row(Matrix<Rows...>)
 
 #ifdef DOCTEST_LIBRARY_INCLUDED
 
-TEST_CASE("[Galerkin::MetaLinAlg] Test the identity function")
-{
-    REQUIRE(eye<3> == make_matrix(
-                          make_row(rational<1>, rational<0>, rational<0>),
-                          make_row(rational<0>, rational<1>, rational<0>),
-                          make_row(rational<0>, rational<0>, rational<1>)));
-}
-
 TEST_CASE("[Galerkin::MetaLinAlg] Do row elimination on L and U factors")
 {
     SUBCASE("A simple 2 x 2 matrix")
@@ -386,14 +324,6 @@ TEST_CASE("[Galerkin::MetaLinAlg] Do row elimination on L and U factors")
             make_row(rational<2>, rational<4>, -rational<5>),
             make_row(-rational<3>, -rational<4>, rational<11>)
         ));
-        /* REQUIRE(L == make_matrix(
-                         make_row(rational<2>, -rational<1>, rational<3>),
-                         make_row(rational<0>, rational<4>, rational<-5>),
-                         make_row(rational<0>, rational<-4>, rational<11>)));
-        REQUIRE(U == make_matrix(
-                         make_row(rational<1>, rational<0>, rational<0>),
-                         make_row(rational<2>, rational<1>, rational<0>),
-                         make_row(rational<-3>, rational<0>, rational<1>))); */
     }
 }
 
@@ -401,20 +331,6 @@ TEST_CASE("[Galerkin::MetaLinAlg] Do row elimination on L and U factors")
 
 /********************************************************************************
  *******************************************************************************/
-
-template <int M, int N, class... URows, class... LRows>
-constexpr auto do_row_elimination(Matrix<URows...>, Matrix<LRows...>)
-{
-    if constexpr (N == sizeof...(URows))
-    {
-        return std::make_tuple(Matrix<URows...>(), Matrix<LRows...>());
-    }
-    else
-    {
-        auto [U, L] = eliminate_row<M, N>(Matrix<URows...>(), Matrix<LRows...>());
-        return do_row_elimination<M, N+1>(U, L);
-    }
-}
 
 template <int M, int N, class... Rows>
 constexpr auto do_row_elimination(Matrix<Rows...>) noexcept
@@ -466,45 +382,6 @@ constexpr auto factorize(Matrix<Rows...>,
             {
                 constexpr auto P = typeconst_list<std::integral_constant<int, swaps>...>();
                 return factorize(LU, P, std::integral_constant<int, M+1>());
-            }
-        }
-    }
-}
-
-template <class... URows, class... LRows, int... swaps, int M>
-constexpr auto factorize(Matrix<URows...>, Matrix<LRows...>,
-                         typeconst_list<std::integral_constant<int, swaps>...>,
-                         std::integral_constant<int, M>) noexcept
-{
-    if constexpr (M == sizeof...(URows) - 1)
-    {
-        return std::make_tuple(Matrix<LRows...>(), Matrix<URows...>(),
-                               typeconst_list<std::integral_constant<int, swaps>...>());
-    }
-    else
-    {
-
-        constexpr auto swap = find_nonzero_entry<M, M>(Matrix<URows...>());
-        if constexpr (swap != M)
-        {
-            constexpr auto U = swap_rows<M, swap>(Matrix<URows...>());
-            constexpr auto P = typeconst_list<std::integral_constant<int, swaps>...,
-                                              std::integral_constant<int, swap>>();
-            return factorize(U, Matrix<LRows...>(), P, std::integral_constant<int, M>());
-        }
-        else
-        {
-            auto [U, L] = do_row_elimination<M, M+1>(Matrix<URows...>(), Matrix<LRows...>());
-            if constexpr (sizeof...(swaps) == M)
-            {
-                constexpr auto P = typeconst_list<std::integral_constant<int, swaps>...,
-                                                  std::integral_constant<int, M>>();
-                return factorize(U, L, P, std::integral_constant<int, M+1>());
-            }
-            else
-            {
-                constexpr auto P = typeconst_list<std::integral_constant<int, swaps>...>();
-                return factorize(U, L, P, std::integral_constant<int, M+1>());
             }
         }
     }
