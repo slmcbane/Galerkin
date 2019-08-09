@@ -310,6 +310,40 @@ constexpr auto eliminate_row(Matrix<URows...> U, Matrix<LRows...> L)
     return std::make_tuple(newu, newl);
 }
 
+template <auto I, auto J, int K, class Row, class... Rows>
+constexpr auto eliminate_row_helper(Matrix<Rows...>, Row, std::integral_constant<int, K>)
+{
+    [[maybe_unused]] constexpr auto A = Matrix<Rows...>();
+    constexpr auto row = Row();
+    [[maybe_unused]] constexpr auto mult = get_elt<J, I>(A) / get_elt<I, I>(A);
+
+    if constexpr (K == I)
+    {
+        constexpr auto newrow = set_element<I>(row, mult);
+        return eliminate_row_helper<I, J>(A, newrow, std::integral_constant<int, K+1>());
+    }
+    else if constexpr (K == sizeof...(Rows))
+    {
+        return row;
+    }
+    else
+    {
+        constexpr auto newrow = set_element<K>(row,
+            get_elt<J, K>(A) - get_elt<I, K>(A) * mult);
+        return eliminate_row_helper<I, J>(A, newrow, std::integral_constant<int, K+1>());
+    }
+}
+
+template <auto I, auto J, class... Rows>
+constexpr auto eliminate_row(Matrix<Rows...>)
+{
+    static_assert(J > I);
+    constexpr auto A = Matrix<Rows...>();
+    constexpr auto newrow = eliminate_row_helper<I, J>(A, get_row<J>(A),
+                                                       std::integral_constant<int, I>());
+    return replace_row<J>(A, newrow);
+}
+
 /********************************************************************************
  * Test eliminating a row from a matrix (in the LU process). Rather than do this
  * in place I keep a separate L and U around for ease of implementation.
@@ -329,17 +363,14 @@ TEST_CASE("[Galerkin::MetaLinAlg] Do row elimination on L and U factors")
 {
     SUBCASE("A simple 2 x 2 matrix")
     {
-        constexpr auto L = make_matrix(
+        constexpr auto A = make_matrix(
             make_row(rational<2>, rational<3>),
             make_row(rational<1>, rational<4>));
 
-        auto [L1, U] = eliminate_row<0, 1>(L, eye<2>);
-        REQUIRE(L1 == Matrix<
-                          MatrixRow<Rational<2, 1>, Rational<3, 1>>,
-                          MatrixRow<Rational<0, 1>, Rational<5, 2>>>());
-        REQUIRE(U == Matrix<
-                         MatrixRow<Rational<1, 1>, Rational<0, 1>>,
-                         MatrixRow<Rational<1, 2>, Rational<1, 1>>>());
+        auto LU = eliminate_row<0, 1>(A);
+        REQUIRE(LU == Matrix<
+                             MatrixRow<Rational<2, 1>, Rational<3, 1>>,
+                             MatrixRow<Rational<1, 2>, Rational<5, 2>>>());
     }
 
     SUBCASE("A 3 x 3 matrix")
@@ -349,16 +380,20 @@ TEST_CASE("[Galerkin::MetaLinAlg] Do row elimination on L and U factors")
             make_row(rational<4>, rational<2>, rational<1>),
             make_row(-rational<6>, -rational<1>, rational<2>));
 
-        auto [L0, U0] = eliminate_row<0, 1>(A, eye<3>);
-        auto [L, U] = eliminate_row<0, 2>(L0, U0);
-        REQUIRE(L == make_matrix(
+        auto LU = eliminate_row<0, 2>(eliminate_row<0, 1>(A));
+        REQUIRE(LU == make_matrix(
+            make_row(rational<2>, -rational<1>, rational<3>),
+            make_row(rational<2>, rational<4>, -rational<5>),
+            make_row(-rational<3>, -rational<4>, rational<11>)
+        ));
+        /* REQUIRE(L == make_matrix(
                          make_row(rational<2>, -rational<1>, rational<3>),
                          make_row(rational<0>, rational<4>, rational<-5>),
                          make_row(rational<0>, rational<-4>, rational<11>)));
         REQUIRE(U == make_matrix(
                          make_row(rational<1>, rational<0>, rational<0>),
                          make_row(rational<2>, rational<1>, rational<0>),
-                         make_row(rational<-3>, rational<0>, rational<1>)));
+                         make_row(rational<-3>, rational<0>, rational<1>))); */
     }
 }
 
@@ -458,6 +493,11 @@ TEST_CASE("[Galerkin::MetaLinAlg] Test LU factorization")
         REQUIRE(P == make_list(
                          std::integral_constant<int, 0>(),
                          std::integral_constant<int, 1>()));
+    }
+
+    SUBCASE("A more difficult case with pivoting")
+    {
+        
     }
 }
 
