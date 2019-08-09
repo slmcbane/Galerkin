@@ -416,6 +416,61 @@ constexpr auto do_row_elimination(Matrix<URows...>, Matrix<LRows...>)
     }
 }
 
+template <int M, int N, class... Rows>
+constexpr auto do_row_elimination(Matrix<Rows...>) noexcept
+{
+    if constexpr (N == sizeof...(Rows))
+    {
+        return Matrix<Rows...>();
+    }
+    else
+    {
+        constexpr auto LU = eliminate_row<M, N>(Matrix<Rows...>());
+        return do_row_elimination<M, N+1>(LU);
+    }
+}
+
+template <class... Rows, int... swaps, int M>
+constexpr auto factorize(Matrix<Rows...>,
+                         typeconst_list<std::integral_constant<int, swaps>...>,
+                         std::integral_constant<int, M>) noexcept
+{
+    if constexpr (M == sizeof...(Rows) - 1)
+    {
+        return std::tuple(Matrix<Rows...>(),
+                          typeconst_list<std::integral_constant<int, swaps>...>());
+    }
+    else
+    {
+        constexpr auto swap = find_nonzero_entry<M, M>(Matrix<Rows...>());
+        if constexpr (swap != M)
+        {
+            constexpr auto LU = swap_rows<M, swap>(Matrix<Rows...>());
+            constexpr auto P = typeconst_list<std::integral_constant<int, swaps>...,
+                                              std::integral_constant<int, swap>>();
+            return factorize(LU, P, std::integral_constant<int, M>());
+        }
+        else
+        {
+            constexpr auto LU = do_row_elimination<M, M+1>(Matrix<Rows...>());
+            // If number of swaps is the same as M we didn't do a swap for this
+            // row yet; add the index of this row to swaps (indicates no swap).
+            if constexpr (sizeof...(swaps) == M)
+            {
+                constexpr auto P = typeconst_list<std::integral_constant<int, swaps>...,
+                                                  std::integral_constant<int, M>>();
+                return factorize(LU, P, std::integral_constant<int, M+1>());
+            }
+            // otherwise, we did a swap and should not add anything to the swaps
+            else
+            {
+                constexpr auto P = typeconst_list<std::integral_constant<int, swaps>...>();
+                return factorize(LU, P, std::integral_constant<int, M+1>());
+            }
+        }
+    }
+}
+
 template <class... URows, class... LRows, int... swaps, int M>
 constexpr auto factorize(Matrix<URows...>, Matrix<LRows...>,
                          typeconst_list<std::integral_constant<int, swaps>...>,
@@ -458,10 +513,8 @@ constexpr auto factorize(Matrix<URows...>, Matrix<LRows...>,
 template <class... Rows>
 constexpr auto factorize(Matrix<Rows...>) noexcept
 {
-    constexpr auto U = Matrix<Rows...>();
-    constexpr auto L = eye<sizeof...(Rows)>;
     constexpr auto P = typeconst_list<>();
-    return factorize(U, L, P, std::integral_constant<int, 0>());
+    return factorize(Matrix<Rows...>(), P, std::integral_constant<int, 0>());
 }
 
 /********************************************************************************
@@ -478,21 +531,18 @@ TEST_CASE("[Galerkin::MetaLinAlg] Test LU factorization")
             make_row(rational<4>, rational<2>, rational<1>),
             make_row(rational<-6>, rational<-1>, rational<2>));
 
-        auto [L, U, P] = factorize(A);
+        // auto [L, U, P] = factorize(A);
+        auto [LU, P] = factorize(A);
 
-        REQUIRE(L == make_matrix(
-                         make_row(rational<1>, rational<0>, rational<0>),
-                         make_row(rational<2>, rational<1>, rational<0>),
-                         make_row(rational<-3>, rational<-1>, rational<1>)));
-
-        REQUIRE(U == make_matrix(
-                         make_row(rational<2>, -rational<1>, rational<3>),
-                         make_row(rational<0>, rational<4>, -rational<5>),
-                         make_row(rational<0>, rational<0>, rational<6>)));
+        REQUIRE(LU == make_matrix(
+            make_row(rational<2>, -rational<1>, rational<3>),
+            make_row(rational<2>, rational<4>, -rational<5>),
+            make_row(-rational<3>, -rational<1>, rational<6>)
+        ));
 
         REQUIRE(P == make_list(
-                         std::integral_constant<int, 0>(),
-                         std::integral_constant<int, 1>()));
+            std::integral_constant<int, 0>(),
+            std::integral_constant<int, 1>()));
     }
 
     SUBCASE("A more difficult case with pivoting")
