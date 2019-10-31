@@ -448,44 +448,135 @@ TEST_CASE("[Galerkin::MetaLinAlg] Test LU factorization")
  *******************************************************************************/
 
 template <auto M, int... swaps, class Row>
-constexpr auto undo_swaps(typeconst_list<std::integral_constant<int, swaps>...>,
-                          Row)
+constexpr auto apply_swaps(typeconst_list<std::integral_constant<int, swaps>...>,
+                           Row)
 {
-    constexpr auto lst = typeconst_list<std::integral_constant<int, swaps>...>();
-    constexpr auto swap = get<M>(lst)();
-    if constexpr (swap != M)
+    [[maybe_unused]] constexpr auto lst = typeconst_list<std::integral_constant<int, swaps>...>();
+    if constexpr (M == sizeof...(swaps))
     {
-        // swap_rows was defined on a `Matrix` but `Matrix` is just a typedef of
-        // typeconst_list so it will work just as well here.
-        constexpr auto row = swap_rows<M, swap>(Row());
-        if constexpr (M == 0)
-        {
-            return row;
-        }
-        else
-        {
-            return undo_swaps<M - 1>(lst, row);
-        }
+        return Row();
     }
     else
     {
-        if constexpr (M == 0)
+        constexpr auto swap = get<M>(lst)();
+        if constexpr (swap != M)
         {
-            return Row();
+            // swap_rows was defined on a `Matrix` but `Matrix` is just a typedef of
+            // typeconst_list so it will work just as well here.
+            constexpr auto row = swap_rows<M, swap>(Row());
+            return apply_swaps<M + 1>(lst, row);
         }
         else
         {
-            return undo_swaps<M - 1>(lst, Row());
+            return apply_swaps<M + 1>(lst, Row());
         }
     }
 }
 
+template <auto start, class Arow, class Soln, class Entry>
+constexpr auto subtract_previous(Arow, Soln, Entry)
+{
+    static_assert(start <= Soln::count());
+    if constexpr (start == Soln::count())
+    {
+        return Entry();
+    }
+    else
+    {
+        constexpr auto increment = get<start>(Soln()) * get<start>(Arow());
+        return subtract_previous<start + 1>(Arow(), Soln(), Entry() - increment);
+    }
+}
+
+template <auto start, auto sz, class Arow, class Soln, class Entry>
+constexpr auto subtract_latter(Arow, Soln, Entry)
+{
+    static_assert(start <= Arow::count());
+    if constexpr (start == Arow::count())
+    {
+        return Entry();
+    }
+    else
+    {
+        constexpr auto increment = get<start - sz + Soln::count()>(Soln()) * get<start>(Arow());
+        return subtract_latter<start+1, sz>(Arow(), Soln(), Entry() - increment);
+    }
+}
+
+template <auto M, class... Rows, class Rhs, class Soln>
+constexpr auto backsub_fwd_impl(Matrix<Rows...>, Rhs, Soln)
+{
+    if constexpr (M == sizeof...(Rows))
+    {
+        return Soln();
+    }
+    else if constexpr (M == 0)
+    {
+        static_assert(Soln::count() == 0);
+        return backsub_fwd_impl<1>(Matrix<Rows...>(), Rhs(), make_row(get<0>(Rhs())));
+    }
+    else
+    {
+        constexpr auto entry = get<M>(Rhs());
+        constexpr auto soln = Soln::append(
+            make_row(subtract_previous<0>(get_row<M>(Matrix<Rows...>()), Soln(), entry)));
+        return backsub_fwd_impl<M + 1>(Matrix<Rows...>(), Rhs(), soln);
+    }
+}
+
+template <class... Rows, class Rhs>
+constexpr auto backsub_fwd(Matrix<Rows...>, Rhs)
+{
+    return backsub_fwd_impl<0>(Matrix<Rows...>(), Rhs(), MatrixRow<>());
+}
+
+template <int M, class... Rows, class Rhs, class Soln>
+constexpr auto backsub_back_impl(Matrix<Rows...>, Rhs, Soln)
+{
+    static_assert(M >= -1 && M < static_cast<long int>(sizeof...(Rows)));
+    if constexpr (M == -1)
+    {
+        return Soln();
+    }
+    else if constexpr (M == sizeof...(Rows)-1)
+    {
+        static_assert(Soln::count() == 0);
+        return backsub_back_impl<M-1>(
+            Matrix<Rows...>(), Rhs(),
+            make_row(get<M>(Rhs()) / get_elt<M, M>(Matrix<Rows...>()))
+        );
+    }
+    else
+    {
+        constexpr auto entry = get<M>(Rhs());
+        constexpr auto soln = make_row(
+            subtract_latter<M+1, sizeof...(Rows)>(get_row<M>(Matrix<Rows...>()), Soln(), entry)
+            / get_elt<M, M>(Matrix<Rows...>())
+        ).append(Soln());
+        return backsub_back_impl<M - 1>(Matrix<Rows...>(), Rhs(), soln);
+    }
+}
+
+template <class... Rows, class Rhs>
+constexpr auto backsub_back(Matrix<Rows...>, Rhs)
+{
+    constexpr auto M = sizeof...(Rows);
+    return backsub_back_impl<M-1>(Matrix<Rows...>(), Rhs(), MatrixRow<>());
+}
+
+template <class... Rows, class Rhs>
+constexpr auto backsub(Matrix<Rows...>, Rhs)
+{
+    constexpr auto y = backsub_fwd(Matrix<Rows...>(), Rhs());
+    return backsub_back(Matrix<Rows...>(), y);
+}
+
 template <int... swaps, class Row>
-constexpr auto invert_permutation(typeconst_list<std::integral_constant<int, swaps>...>,
-                                  Row)
+constexpr auto apply_permutation(typeconst_list<std::integral_constant<int, swaps>...>,
+                                 Row)
 {
     static_assert(sizeof...(swaps) == Row().count() - 1);
-    return undo_swaps<sizeof...(swaps) - 1>(
+    return apply_swaps<0>(
         typeconst_list<std::integral_constant<int, swaps>...>(), Row());
 }
 
@@ -496,7 +587,7 @@ constexpr auto linear_solve(Matrix<Rows...>, Row)
     constexpr auto LU = std::get<0>(factorization);
     constexpr auto P = std::get<1>(factorization);
 
-    constexpr auto rhs = invert_permutation(P, Row());
+    constexpr auto rhs = apply_permutation(P, Row());
     return backsub(LU, rhs);
 }
 
@@ -514,12 +605,12 @@ TEST_CASE("[Galerkin::MetaLinAlg] Test full linear solve")
         make_row(rational<5>, rational<0>, rational<2>, rational<3>),
         make_row(rational<1>, rational<1>, rational<1>, rational<1>));
     constexpr auto b = make_row(
-        rational<1>, rational<1>, rational<1>, rational<1>);
+        rational<1>, rational<2>, rational<3>, rational<4>);
 
     constexpr auto x = linear_solve(A, b);
 
     REQUIRE(x == make_row(
-                     -rational<1, 6>, rational<1, 2>, rational<1, 6>, rational<1, 2>));
+                     -rational<2>, rational<2>, -rational<1>, rational<5>));
 }
 
 #endif /* DOCTEST_LIBRARY_INCLUDED */
