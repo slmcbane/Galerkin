@@ -20,6 +20,9 @@
 namespace Galerkin
 {
 
+/*!
+ * @brief Implements a solver for linear systems of equations at compile-time.
+ */
 namespace MetaLinAlg
 {
 
@@ -241,6 +244,9 @@ TEST_CASE("[Galerkin::MetaLinAlg] Find non-zero pivot element")
 /********************************************************************************
  *******************************************************************************/
 
+/*!
+ * @brief Set the `I`-th element in `row` to the given `Rational` value
+ */
 template <auto I, auto N, auto D, class... Nums>
 constexpr auto set_element(MatrixRow<Nums...> row,
                            Rationals::Rational<N, D>) noexcept
@@ -256,6 +262,7 @@ constexpr auto set_element(MatrixRow<Nums...> row,
     }
 }
 
+/// Internal recursive implementation of `eliminate_row`.
 template <auto I, auto J, int K, class Row, class... Rows>
 constexpr auto eliminate_row_helper(Matrix<Rows...>, Row, std::integral_constant<int, K>)
 {
@@ -280,6 +287,12 @@ constexpr auto eliminate_row_helper(Matrix<Rows...>, Row, std::integral_constant
     }
 }
 
+/*!
+ * @brief Performs the row elimination step in LU factorization.
+ *
+ * Given template arguments `I`, `J`, eliminates the `I`-th element in row `J`
+ * by subtracting a multiple of row `I`.
+ */
 template <auto I, auto J, class... Rows>
 constexpr auto eliminate_row(Matrix<Rows...>)
 {
@@ -331,6 +344,7 @@ TEST_CASE("[Galerkin::MetaLinAlg] Do row elimination on L and U factors")
 /********************************************************************************
  *******************************************************************************/
 
+/// Recursive implementation of the Gaussian elimination step in LU factorization
 template <int M, int N, class... Rows>
 constexpr auto do_row_elimination(Matrix<Rows...>) noexcept
 {
@@ -345,6 +359,14 @@ constexpr auto do_row_elimination(Matrix<Rows...>) noexcept
     }
 }
 
+/*!
+ * @brief LU factorization with row pivoting.
+ * 
+ * This overload is the recursive implementation; first argument is the current
+ * packed `LU` matrix; second is the list of swaps; the last is the row currently
+ * to be processed. First entry to factorize `A` should be
+ * `factorize(A, typeconst_list<>(), 0)`.
+ */
 template <class... Rows, int... swaps, int M>
 constexpr auto factorize(Matrix<Rows...>,
                          typeconst_list<std::integral_constant<int, swaps>...>,
@@ -386,6 +408,16 @@ constexpr auto factorize(Matrix<Rows...>,
     }
 }
 
+/*!
+ * @brief LU factorization with partial pivoting.
+ * 
+ * @returns A tuple `[LU, P]` where `LU` is a `Matrix` containing the packed
+ * `L` and `U` factors (convention is that diagonal elements of `L` are 1), and
+ * `P` allows reversal of the swaps made by pivoting. Apply the inverse of `P`
+ * by using `apply_permutation`.
+ *
+ * @param A Matrix to be factorized.
+ */
 template <class... Rows>
 constexpr auto factorize(Matrix<Rows...>) noexcept
 {
@@ -447,6 +479,7 @@ TEST_CASE("[Galerkin::MetaLinAlg] Test LU factorization")
 /********************************************************************************
  *******************************************************************************/
 
+/// Recursive implementation of `apply_permutation`.
 template <auto M, int... swaps, class Row>
 constexpr auto apply_swaps(typeconst_list<std::integral_constant<int, swaps>...>,
                            Row)
@@ -473,6 +506,7 @@ constexpr auto apply_swaps(typeconst_list<std::integral_constant<int, swaps>...>
     }
 }
 
+/// Helper function for `backsub_fwd`.
 template <auto start, class Arow, class Soln, class Entry>
 constexpr auto subtract_previous(Arow, Soln, Entry)
 {
@@ -488,6 +522,7 @@ constexpr auto subtract_previous(Arow, Soln, Entry)
     }
 }
 
+/// Helper function for `backsub_back`.
 template <auto start, auto sz, class Arow, class Soln, class Entry>
 constexpr auto subtract_latter(Arow, Soln, Entry)
 {
@@ -503,6 +538,7 @@ constexpr auto subtract_latter(Arow, Soln, Entry)
     }
 }
 
+/// Recursive implementation of `backsub_fwd`.
 template <auto M, class... Rows, class Rhs, class Soln>
 constexpr auto backsub_fwd_impl(Matrix<Rows...>, Rhs, Soln)
 {
@@ -524,12 +560,24 @@ constexpr auto backsub_fwd_impl(Matrix<Rows...>, Rhs, Soln)
     }
 }
 
+/*!
+ * @brief Perform forward substitution for lower triangular matrix
+ * 
+ * The diagonal of the matrix is taken to be 1. `backsub_fwd(A, b)` returns a
+ * vector `x` (in the form of a `typeconst_list`) satisying `A*x = b`.
+ * 
+ * @param A Matrix specifying the linear operator
+ * @param b The right-hand side of the system
+ * 
+ * @returns `x` solving `A * x = b`.
+ */
 template <class... Rows, class Rhs>
 constexpr auto backsub_fwd(Matrix<Rows...>, Rhs)
 {
     return backsub_fwd_impl<0>(Matrix<Rows...>(), Rhs(), MatrixRow<>());
 }
 
+/// Recursive implementation of backsubstitution.
 template <int M, class... Rows, class Rhs, class Soln>
 constexpr auto backsub_back_impl(Matrix<Rows...>, Rhs, Soln)
 {
@@ -557,6 +605,9 @@ constexpr auto backsub_back_impl(Matrix<Rows...>, Rhs, Soln)
     }
 }
 
+/*!
+ * @brief Perform back substitution on an upper triangular matrix.
+ */
 template <class... Rows, class Rhs>
 constexpr auto backsub_back(Matrix<Rows...>, Rhs)
 {
@@ -564,6 +615,10 @@ constexpr auto backsub_back(Matrix<Rows...>, Rhs)
     return backsub_back_impl<M-1>(Matrix<Rows...>(), Rhs(), MatrixRow<>());
 }
 
+/*!
+ * @brief Use back-substitution to solve `Ax = b`, where `A` is a packed `LU`
+ * factorization.
+ */
 template <class... Rows, class Rhs>
 constexpr auto backsub(Matrix<Rows...>, Rhs)
 {
@@ -571,6 +626,9 @@ constexpr auto backsub(Matrix<Rows...>, Rhs)
     return backsub_back(Matrix<Rows...>(), y);
 }
 
+/*!
+ * @brief Apply the permutation returned by LU factorization to a vector.
+ */
 template <int... swaps, class Row>
 constexpr auto apply_permutation(typeconst_list<std::integral_constant<int, swaps>...>,
                                  Row)
@@ -580,6 +638,24 @@ constexpr auto apply_permutation(typeconst_list<std::integral_constant<int, swap
         typeconst_list<std::integral_constant<int, swaps>...>(), Row());
 }
 
+/*!
+ * @brief Solve the system `Ax = b`.
+ * 
+ * `linear_solve(A, b)` returns `x` satisfying `A*x = b`. This is accomplished
+ * by:
+ * 
+ * - Factoring A into the product `P * L * U` by a standard LU factorization w/
+ * partial pivoting
+ * - Apply the permutation to the given right-hand side.
+ * - Do back-substitution to solve the system.
+ * 
+ * All computations are performed at compile time.
+ * 
+ * @param A The matrix giving the linear operator
+ * @param b The right-hand side of the system.
+ * 
+ * @returns `x` such that `A*x = b`.
+ */
 template <class... Rows, class Row>
 constexpr auto linear_solve(Matrix<Rows...>, Row)
 {
