@@ -17,12 +17,12 @@ namespace Multinomials
 {
 
 // This struct represent the powers that each term is raised to in a multinomial.
-template <unsigned... vs>
+template <auto... vs>
 struct Powers
 {
 };
 
-template <class... Args, unsigned... vs>
+template <class... Args, auto... vs>
 constexpr auto raise(std::tuple<Args...> args, Powers<vs...>)
 {
     static_assert(sizeof...(Args) == sizeof...(vs));
@@ -46,10 +46,10 @@ constexpr auto raise(std::tuple<Args...> args, Powers<vs...>)
     );
 }
 
-template <unsigned... vs>
+template <auto... vs>
 constexpr auto nvars(Powers<vs...>) { return sizeof...(vs); }
 
-template <auto I, unsigned... vs>
+template <auto I, auto... vs>
 constexpr auto get_power(Powers<vs...>) { return std::get<I>(std::tuple(vs...)); }
 
 template <auto... vs>
@@ -58,7 +58,7 @@ constexpr auto powers(std::integral_constant<decltype(vs), vs>...)
     return Powers<vs...>();
 }
 
-template <unsigned... vs, unsigned... ws>
+template <auto... vs, auto... ws>
 constexpr bool operator<(Powers<vs...>, Powers<ws...>)
 {
     static_assert(nvars(Powers<vs...>()) == nvars(Powers<ws...>()));
@@ -66,7 +66,7 @@ constexpr bool operator<(Powers<vs...>, Powers<ws...>)
     return std::tuple(vs...) < std::tuple(ws...);
 }
 
-template <unsigned... vs, unsigned... ws>
+template <auto... vs, auto... ws>
 constexpr bool operator==(Powers<vs...>, Powers<ws...>)
 {
     static_assert(nvars(Powers<vs...>()) == nvars(Powers<ws...>()));
@@ -74,15 +74,30 @@ constexpr bool operator==(Powers<vs...>, Powers<ws...>)
     return std::tuple(vs...) == std::tuple(ws...);
 }
 
-template <unsigned... vs, unsigned... ws>
-constexpr bool operator<=(Powers<vs...>, Powers<ws...>)
+template <auto v, auto... vs, auto w, auto... ws>
+constexpr bool operator<=(Powers<v, vs...>, Powers<w, ws...>)
 {
-    static_assert(nvars(Powers<vs...>()) == nvars(Powers<ws...>()));
+    static_assert(nvars(Powers<v, vs...>()) == nvars(Powers<w, ws...>()));
 
-    return std::tuple(vs...) <= std::tuple(ws...);
+    if constexpr (sizeof...(vs) == 0)
+    {
+        return v <= w;
+    }
+    else if constexpr (v == w)
+    {
+        return Powers<vs...>() <= Powers<ws...>();
+    }
+    else if constexpr (v < w)
+    {
+        return true;
+    }
+    else
+    {
+        return false;
+    }
 }
 
-template <unsigned... vs, unsigned... ws>
+template <auto... vs, auto... ws>
 constexpr auto operator+(Powers<vs...>, Powers<ws...>)
 {
     static_assert(nvars(Powers<vs...>()) == nvars(Powers<ws...>()));
@@ -110,7 +125,7 @@ constexpr bool operator<(Term<R, P>, Term<R2, P2>)
 template <class R, class P, class R2, class P2>
 constexpr bool operator==(Term<R, P>, Term<R2, P2>)
 {
-    return P() == P2();
+    return std::is_same_v<P, P2> && std::is_same_v<R, R2>;
 }
 
 template <class R, class P, class R2, class P2>
@@ -119,13 +134,13 @@ constexpr bool operator<=(Term<R, P>, Term<R2, P2>)
     return P() <= P2();
 }
 
-template <class R, unsigned... vs>
+template <class R, auto... vs>
 constexpr auto nvars(Term<R, Powers<vs...>>) { return nvars(Powers<vs...>()); }
 
-template <int I, class R, unsigned... vs>
+template <int I, class R, auto... vs>
 constexpr auto get_power(Term<R, Powers<vs...>>) { return get_power<I>(Powers<vs...>()); }
 
-template <class R, unsigned... vs>
+template <class R, auto... vs>
 constexpr auto get_powers(Term<R, Powers<vs...>>) { return Powers<vs...>(); }
 
 template <class R, class P>
@@ -134,7 +149,7 @@ constexpr auto coeff(Term<R, P>)
     return Rationals::rational<R::num(), R::den()>;
 }
 
-template <auto N, auto D, unsigned... vs>
+template <auto N, auto D, auto... vs>
 constexpr auto term(Rationals::Rational<N, D>, Powers<vs...>)
 {
     return Term<decltype(Rationals::rational<N, D>), Powers<vs...>>();
@@ -213,7 +228,7 @@ constexpr auto combine_duplicate_powers(typeconst_list<Terms...> lst)
     }
     else
     {
-        if constexpr (lst.head() == lst.tail().head())
+        if constexpr (get_powers(lst.head()) == get_powers(lst.tail().head()))
         {
             constexpr auto c = coeff(lst.head()) + coeff(lst.tail().head());
             constexpr auto powers = get_powers(lst.head());
@@ -650,16 +665,16 @@ TEST_CASE("[Galerkin::Multinomials] Multinomial application")
  * End of multinomial application tests.
  *******************************************************************************/
 
-template <unsigned... vs>
-constexpr auto powers_from_tuple(std::tuple<std::integral_constant<unsigned, vs>...>)
+template <auto... vs>
+constexpr auto powers_from_tuple(std::tuple<std::integral_constant<decltype(vs), vs>...>)
 {
     return Powers<vs...>();
 }
 
-template <auto I, unsigned v, unsigned... vs>
+template <auto I, auto v, auto... vs>
 constexpr auto subtract_one(
-    std::tuple<std::integral_constant<unsigned, v>,
-    std::integral_constant<unsigned, vs>...>)
+    std::tuple<std::integral_constant<decltype(v), v>,
+    std::integral_constant<decltype(vs), vs>...>)
 {
     if constexpr (I == 0)
     {
@@ -677,7 +692,7 @@ constexpr auto subtract_one(
     }
 }
 
-template <auto I, unsigned... vs>
+template <auto I, auto... vs>
 constexpr auto subtract_one(Powers<vs...>)
 {
     return powers_from_tuple(subtract_one<I>(std::tuple(intgr_constant<vs>...)));
