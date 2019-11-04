@@ -293,6 +293,9 @@ constexpr auto repeatedly(T) noexcept
     }
 }
 
+template <auto v>
+constexpr auto intgr_constant = std::integral_constant<decltype(v), v>();
+
 } /* namespace Galerkin */
 
 #endif /* UTILS_HPP */
