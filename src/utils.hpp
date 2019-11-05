@@ -56,6 +56,21 @@ constexpr T one = static_cast<T>(1);
 template <class T>
 constexpr T zero = static_cast<T>(0);
 
+namespace
+{
+    template <auto... Ns, class... Ts>
+    constexpr auto tuple_tail_impl(std::index_sequence<Ns...>, std::tuple<Ts...> t) noexcept
+    {
+        return std::tuple(std::get<Ns+1>(t)...);
+    }
+}
+
+template <class T, class... Ts>
+constexpr auto tuple_tail(std::tuple<T, Ts...> t) noexcept
+{
+    return tuple_tail_impl(std::index_sequence_for<Ts...>(), t);
+}
+
 /*!
  * @brief Do an arbitrary reduction on possibly compile-time expressions.
  * 
