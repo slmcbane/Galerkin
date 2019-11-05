@@ -97,19 +97,19 @@ struct ControlPoint
 // Helper function to check types of coordinate variables.
 namespace
 {
-    template <class Coord, class... Coords>
-    constexpr bool check_coords() noexcept
+template <class Coord, class... Coords>
+constexpr bool check_coords() noexcept
+{
+    constexpr bool is_coord = Rationals::is_rational<Coord> || is_intgr_constant<Coord>;
+    if constexpr (sizeof...(Coords) == 0)
     {
-        constexpr bool is_coord = Rationals::is_rational<Coord> || is_intgr_constant<Coord>;
-        if constexpr (sizeof...(Coords) == 0)
-        {
-            return is_coord;
-        }
-        else
-        {
-            return is_coord && check_coords<Coords...>();
-        }
+        return is_coord;
     }
+    else
+    {
+        return is_coord && check_coords<Coords...>();
+    }
+}
 
 } // namespace
 
@@ -144,13 +144,11 @@ template <class... Powers, class... Pts>
 constexpr auto build_terms_matrix(ShapeFunctionForm<Powers...>, typeconst_list<Pts...>) noexcept
 {
     return static_reduce<0, sizeof...(Pts), 1>(
-        [](auto I)
-        {
+        [](auto I) {
             return compute_power_values(typeconst_list<Powers...>(), get<I()>(typeconst_list<Pts...>()));
         },
         make_list(),
-        [] (auto L, auto x) { return L.append(make_list(x)); }
-    );
+        [](auto L, auto x) { return L.append(make_list(x)); });
 }
 
 template <class... Coeffs, class... Powers>
@@ -177,15 +175,13 @@ constexpr auto derive_shape_functions(ShapeFunctionForm<Powers...>, typeconst_li
         ShapeFunctionForm<Powers...>(), typeconst_list<Pts...>());
 
     return static_reduce<0, sizeof...(Pts), 1>(
-        [=] (auto I)
-        {
-            constexpr auto coeffs = MetaLinAlg::linear_solve(terms_matrix, 
+        [=](auto I) {
+            constexpr auto coeffs = MetaLinAlg::linear_solve(terms_matrix,
                                                              MetaLinAlg::canonical<I(), sizeof...(Pts)>());
             return multiply_coeffs(coeffs, ShapeFunctionForm<Powers...>());
         },
         typeconst_list<>(),
-        [] (auto L, auto x) { return L.append(make_list(x)); }
-    );
+        [](auto L, auto x) { return L.append(make_list(x)); });
 }
 
 /********************************************************************************
@@ -222,6 +218,39 @@ TEST_CASE("[Galerkin::Elements] Deriving multinomial shape functions")
                 multinomial(
                     term(rational<1, 2>, powers(intgr_constant<1>)),
                     term(rational<1, 2>, powers(intgr_constant<0>))));
+    }
+
+    SUBCASE("Test for a quadratic one-dimensional element")
+    {
+        constexpr auto form = make_form(
+            powers(intgr_constant<2>),
+            powers(intgr_constant<1>),
+            powers(intgr_constant<0>));
+
+        constexpr auto control_points = make_list(
+            control_point(rational<-1>),
+            control_point(rational<0>),
+            control_point(rational<1>));
+        
+        constexpr auto fns = derive_shape_functions(form, control_points);
+
+        REQUIRE(get<0>(fns) ==
+            multinomial(
+                term(rational<1, 2>, powers(intgr_constant<2>)),
+                term(-rational<1, 2>, powers(intgr_constant<1>))
+            ));
+
+        REQUIRE(get<1>(fns) ==
+            multinomial(
+                term(-rational<1>, powers(intgr_constant<2>)),
+                term(rational<1>, powers(intgr_constant<0>))
+            ));
+
+        REQUIRE(get<2>(fns) ==
+            multinomial(
+                term(rational<1, 2>, powers(intgr_constant<2>)),
+                term(rational<1, 2>, powers(intgr_constant<1>))
+            ));
     }
 }
 
