@@ -825,6 +825,32 @@ TEST_CASE("Partial derivatives of a multinomial")
         REQUIRE(partial<0>(mult) == dmult0);
         REQUIRE(partial<1>(mult) == dmult1);
     }
+
+    SUBCASE("Test for a multinomial containing negative powers")
+    {
+        constexpr auto mult = multinomial(
+            term(rational<3, 4>, powers(intgr_constant<2>, intgr_constant<-1>)),
+            term(rational<1, 4>, powers(intgr_constant<1>, intgr_constant<1>)),
+            term(rational<1, 2>, powers(intgr_constant<-1>, intgr_constant<0>)),
+            term(rational<1, 3>, powers(intgr_constant<0>, intgr_constant<1>)),
+            term(rational<2, 3>, powers(intgr_constant<0>, intgr_constant<0>))
+        );
+
+        constexpr auto dmult0 = multinomial(
+            term(rational<6, 4>, powers(intgr_constant<1>, intgr_constant<-1>)),
+            term(rational<1, 4>, powers(intgr_constant<0>, intgr_constant<1>)),
+            term(-rational<1, 2>, powers(intgr_constant<-2>, intgr_constant<0>))
+        );
+
+        constexpr auto dmult1 = multinomial(
+            term(-rational<3, 4>, powers(intgr_constant<2>, intgr_constant<-2>)),
+            term(rational<1, 4>, powers(intgr_constant<1>, intgr_constant<0>)),
+            term(rational<1, 3>, powers(intgr_constant<0>, intgr_constant<0>))
+        );
+
+        REQUIRE(partial<0>(mult) == dmult0);
+        REQUIRE(partial<1>(mult) == dmult1);
+    }
 }
 
 #endif /* DOCTEST_LIBRARY_INCLUDED */
