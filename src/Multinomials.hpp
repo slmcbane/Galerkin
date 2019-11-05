@@ -22,28 +22,41 @@ struct Powers
 {
 };
 
-template <class... Args, auto... vs>
-constexpr auto raise(std::tuple<Args...> args, Powers<vs...>)
+template <class Arg, auto v>
+constexpr auto raise_arg(Arg x, Powers<v>)
 {
-    static_assert(sizeof...(Args) == sizeof...(vs));
-    static_assert(sizeof...(Args) > 0);
-    return static_reduce<1, sizeof...(Args), 1>(
-        [=]([[maybe_unused]] auto I) {
-            constexpr auto power = std::get<I()>(std::tuple(vs...));
-            auto arg = std::get<I()>(args);
-            return static_reduce<0, power, 1>(
-                [=]([[maybe_unused]] auto I) { return arg; },
-                Rationals::rational<1>,
-                [] (auto x, auto y) { return x * y; }
-            );
-        },
-        static_reduce<0, std::get<0>(std::tuple(vs...)), 1>(
-            [=]([[maybe_unused]] auto I) { return std::get<0>(args); },
-            Rationals::rational<1>,
-            [] (auto x, auto y) { return x * y; }
-        ),
+    auto raised = static_reduce<0, v >= 0 ? v : -v, 1>(
+        [=]([[maybe_unused]] auto I) { return x; },
+        Rationals::rational<1>,
         [] (auto x, auto y) { return x * y; }
     );
+
+    if constexpr (v < 0)
+    {
+        return Rationals::rational<1> / raised;
+    }
+    else
+    {
+        return raised;
+    }
+}
+
+template <class... Args, auto v, auto... vs>
+constexpr auto raise(std::tuple<Args...> args, Powers<v, vs...>)
+{
+    static_assert(sizeof...(Args) == sizeof...(vs)+1);
+    static_assert(sizeof...(Args) > 0);
+    
+    auto raised = raise_arg(std::get<0>(args), Powers<v>());
+
+    if constexpr (sizeof...(vs) == 0)
+    {
+        return raised;
+    }
+    else
+    {
+        return raised * raise(tuple_tail(args), Powers<vs...>());
+    }
 }
 
 template <auto... vs>
@@ -304,6 +317,17 @@ TEST_CASE("[Galerkin::Multinomials] Creating multinomials")
         REQUIRE(get_term<2>(mult) == term(rational<1>, powers(intgr_constant<1>, intgr_constant<0>)));
         REQUIRE(get_term<3>(mult) == term(rational<1>, powers(intgr_constant<1>, intgr_constant<1>)));
         REQUIRE(nterms(mult) == 4);
+
+        constexpr auto mult2 = multinomial(
+            term(rational<1>, powers(intgr_constant<1>, intgr_constant<1>)),
+            term(rational<1>, powers(intgr_constant<0>, intgr_constant<-1>)),
+            term(rational<1>, powers(intgr_constant<0>, intgr_constant<0>)),
+            term(rational<1>, powers(intgr_constant<1>, intgr_constant<0>)));
+
+        REQUIRE(get_term<0>(mult2) == term(rational<1>, powers(intgr_constant<0>, intgr_constant<-1>)));
+        REQUIRE(get_term<1>(mult2) == term(rational<1>, powers(intgr_constant<0>, intgr_constant<0>)));
+        REQUIRE(get_term<2>(mult2) == term(rational<1>, powers(intgr_constant<1>, intgr_constant<0>)));
+        REQUIRE(get_term<3>(mult2) == term(rational<1>, powers(intgr_constant<1>, intgr_constant<1>)));
     }
 
     SUBCASE("Test that terms with the same power get combined")
@@ -318,6 +342,17 @@ TEST_CASE("[Galerkin::Multinomials] Creating multinomials")
         REQUIRE(get_term<0>(mult) == term(rational<1>, powers(intgr_constant<0>)));
         REQUIRE(get_term<1>(mult) == term(rational<1>, powers(intgr_constant<1>)));
         REQUIRE(get_term<2>(mult) == term(rational<1, 2>, powers(intgr_constant<2>)));
+
+        constexpr auto mult2 = multinomial(
+            term(rational<1, 2>, powers(intgr_constant<0>)),
+            term(rational<1>, powers(intgr_constant<-1>)),
+            term(rational<1, 2>, powers(intgr_constant<2>)),
+            term(rational<1, 2>, powers(intgr_constant<-1>)));
+
+        REQUIRE(nterms(mult2) == 3);
+        REQUIRE(get_term<1>(mult2) == term(rational<1, 2>, powers(intgr_constant<0>)));
+        REQUIRE(get_term<0>(mult2) == term(rational<3, 2>, powers(intgr_constant<-1>)));
+        REQUIRE(get_term<2>(mult2) == term(rational<1, 2>, powers(intgr_constant<2>)));
     }
 
     SUBCASE("Test that terms with a zero coefficient get dropped")
@@ -640,6 +675,14 @@ TEST_CASE("[Galerkin::Multinomials] Multinomial application")
         REQUIRE(mult1(rational<1, 2>) == rational<9, 4>);
         REQUIRE(mult1(0.5) == doctest::Approx(2.25));
         REQUIRE(mult1(0.5f) == doctest::Approx(2.25f));
+
+        constexpr auto mult2 = multinomial(
+            term(rational<1>, powers(intgr_constant<-2>)),
+            term(rational<2>, powers(intgr_constant<1>)),
+            term(rational<1>, powers(intgr_constant<0>)));
+
+        REQUIRE(mult2(rational<1, 2>) == rational<6>);
+        REQUIRE(mult2(0.5) == doctest::Approx(6.0));
     }
 
     SUBCASE("Applying a true multinomial")
@@ -656,6 +699,20 @@ TEST_CASE("[Galerkin::Multinomials] Multinomial application")
         REQUIRE(mult(rational<1>, rational<1>) == rational<5, 2>);
         REQUIRE(mult(rational<1, 2>, rational<1, 3>) == rational<163, 144>);
         REQUIRE(mult(0.5, 1.0 / 3) == doctest::Approx(163.0 / 144));
+
+        constexpr auto mult2 = multinomial(
+            term(rational<3, 4>, powers(intgr_constant<-2>, intgr_constant<1>)),
+            term(rational<1, 4>, powers(intgr_constant<1>, intgr_constant<1>)),
+            term(rational<1, 2>, powers(intgr_constant<1>, intgr_constant<0>)),
+            term(rational<1, 3>, powers(intgr_constant<0>, intgr_constant<-1>)),
+            term(rational<2, 3>, powers(intgr_constant<0>, intgr_constant<0>))
+        );
+
+        // Should trigger a static assert if uncommented
+        // REQUIRE(mult2(rational<0>, rational<0>) == 0);
+        REQUIRE(mult2(rational<1>, rational<1>) == rational<5, 2>);
+        REQUIRE(mult2(rational<1, 2>, rational<1, 3>) == rational<71, 24>);
+        REQUIRE(mult2(0.5, 1.0 / 3) == doctest::Approx(71.0 / 24));
     }
 }
 
