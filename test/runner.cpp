@@ -12,3 +12,4 @@
 #include "../src/Legendre.hpp"
 #include "../src/Quadrature.hpp"
 #include "../src/MetaLinAlg.hpp"
+#include "../src/Elements.hpp"

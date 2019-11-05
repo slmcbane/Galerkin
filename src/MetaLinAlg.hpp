@@ -5,6 +5,7 @@
  */
 
 #ifndef METALINALG_HPP
+#define METALINALG_HPP
 
 /*!
  * @file MetaLinAlg.hpp
@@ -35,6 +36,46 @@ namespace MetaLinAlg
  */
 template <class... Nums>
 using MatrixRow = typeconst_list<Nums...>;
+
+/*!
+ * @brief Utility; construct a canonical basis vector.
+ */
+template <auto I, auto N>
+constexpr auto canonical()
+{
+    static_assert(N >= 0);
+    if constexpr (N == 0)
+    {
+        return make_list();
+    }
+    else if constexpr (I == 0)
+    {
+        return make_list(Rationals::rational<1>).append(canonical<-1, N-1>());
+    }
+    else
+    {
+        return make_list(Rationals::rational<0>).append(canonical<I-1, N-1>());
+    }
+}
+
+/********************************************************************************
+ * Test that canonical basis vector is correct.
+ *******************************************************************************/
+#ifdef DOCTEST_LIBRARY_INCLUDED
+
+using namespace Galerkin::Rationals;
+
+TEST_CASE("[Galerkin::MetaLinAlg] Canonical basis vectors")
+{
+    REQUIRE(canonical<0, 3>() == MatrixRow<Rational<1, 1>, Rational<0, 1>, Rational<0, 1>>());
+    REQUIRE(canonical<1, 3>() == MatrixRow<Rational<0, 1>, Rational<1, 1>, Rational<0, 1>>());
+    REQUIRE(canonical<2, 3>() == MatrixRow<Rational<0, 1>, Rational<0, 1>, Rational<1, 1>>());
+}
+
+#endif
+/********************************************************************************
+ * End test block
+ *******************************************************************************/
 
 /*!
  * @brief A `Matrix` is just a `typeconst_list` of `MatrixRow`s.

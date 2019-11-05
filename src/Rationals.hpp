@@ -64,6 +64,12 @@ struct Rational
     }
 };
 
+template <class T>
+constexpr bool is_rational = false;
+
+template <rational_num_t N, rational_den_t D>
+constexpr bool is_rational<Rational<N, D>> = true;
+
 /*!
  * @brief Utility; find greatest common denominator of `a` and `b`. This will hit
  * `constexpr` evaluation limits when `a` or `b` becomes large relative to the

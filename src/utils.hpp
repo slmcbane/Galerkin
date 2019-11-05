@@ -311,6 +311,12 @@ constexpr auto repeatedly(T) noexcept
 template <auto v>
 constexpr auto intgr_constant = std::integral_constant<decltype(v), v>();
 
+template <class T>
+constexpr bool is_intgr_constant = false;
+
+template <auto v>
+constexpr bool is_intgr_constant<std::integral_constant<decltype(v), v>> = true;
+
 } /* namespace Galerkin */
 
 #endif /* UTILS_HPP */
