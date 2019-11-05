@@ -22,6 +22,12 @@ struct Powers
 {
 };
 
+template <class T>
+constexpr bool is_powers = false;
+
+template <auto... vs>
+constexpr bool is_powers<Powers<vs...>> = true;
+
 template <class Arg, auto v>
 constexpr auto raise_arg(Arg x, Powers<v>)
 {
@@ -70,6 +76,24 @@ constexpr auto powers(std::integral_constant<decltype(vs), vs>...)
 {
     return Powers<vs...>();
 }
+
+/********************************************************************************
+ * Some trivial tests for the is_powers trait.
+ *******************************************************************************/
+#ifdef DOCTEST_LIBRARY_INCLUDED
+
+TEST_CASE("[Galerkin::Multinomials] make sure that is_powers works")
+{
+    REQUIRE(is_powers<decltype(powers(intgr_constant<1>, intgr_constant<2>))>);
+    REQUIRE(!is_powers<bool>);
+    REQUIRE(!is_powers<typeconst_list<>>);
+}
+
+#endif /* DOCTEST_LIBRARY_INCLUDED */
+
+/********************************************************************************
+ * End test block.
+ *******************************************************************************/
 
 template <auto... vs, auto... ws>
 constexpr bool operator<(Powers<vs...>, Powers<ws...>)
