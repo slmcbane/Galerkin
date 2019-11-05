@@ -48,7 +48,7 @@ be implemented:
   form of the basis and shape functions.
   
 ### License
-Copyright (c) 2019, Sean McBane.
+Copyright (c) 2019, Sean McBane and The University of Texas at Austin.
 
 Galerkin is free software, licensed under the terms of the MIT license. Please
 see the COPYRIGHT file for the formal terms and disclaimers.

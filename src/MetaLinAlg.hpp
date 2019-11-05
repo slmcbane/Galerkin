@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019, Sean McBane
+ * Copyright (c) 2019, Sean McBane and The University of Texas at Austin.
  * This file is part of the Galerkin library; Galerkin is copyright under the
  * terms of the MIT license. Please see the top-level COPYRIGHT file for details.
  */
