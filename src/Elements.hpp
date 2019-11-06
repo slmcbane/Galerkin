@@ -75,28 +75,72 @@ constexpr auto make_form(Powers...) noexcept
     return to_form(ShapeFunctionForm<Powers...>().sorted().unique());
 }
 
-/*!
- * @brief Struct representing a "control point", or vertex of an element.
- * 
- * A `ControlPoint` is one of the vertices of an abstract reference element. I.E.,
- * for a classical quadrilateral element, the control points are (probably)
- * `(-1, -1)`, `(-1, 1)`, `(1, 1)`, `(1, -1)`. This struct is only a lightweight
- * tag object but it does have the additional functionality of conversion to a
- * tuple, for use in evaluating polynomial terms at the point.
- */
-template <class... Coords>
-struct ControlPoint
+// Here ends boilerplate for the DSL and begins the actual implementation of
+// deriving shape functions.
+namespace
 {
-    /// Convert `ControlPoint` to tuple for use as a function argument.
-    static constexpr auto to_tuple() noexcept
+
+template <class... Powers, class... Constraints>
+constexpr auto build_terms_matrix(ShapeFunctionForm<Powers...>, typeconst_list<Constraints...>) noexcept
+{
+    return typeconst_list<Constraints...>().map(
+        [](auto constraint)
+        {
+            return make_list(constraint(Powers())...);
+        }
+    );
+}
+
+template <class... Coeffs, class... Powers>
+constexpr auto multiply_coeffs(typeconst_list<Coeffs...>, ShapeFunctionForm<Powers...>) noexcept
+{
+    return Multinomials::multinomial(Multinomials::term(Coeffs(), Powers())...);
+}
+
+} // namespace
+
+/*!
+ * @brief Given degrees of freedom for an element, derive shape functions.
+ * 
+ * This function derives multinomial shape functions on an element given the
+ * degrees of freedom on the element in a functional form. The first argument is
+ * a `ShapeFunctionForm` specifying the powers of the multinomial form, and the
+ * second is a `typeconst_list` of constraints. These take the form of a function
+ * object accepting a `Powers` object (see `Multinomials.hpp` for interface) and
+ * returning a number as a `Rational`. Functors for the most common cases are
+ * provided - see `evaluate_at` and `partial_at`.
+ */
+template <class... Powers, class... Constraints>
+constexpr auto derive_shape_functions(ShapeFunctionForm<Powers...>, typeconst_list<Constraints...>) noexcept
+{
+    static_assert(sizeof...(Powers) == sizeof...(Constraints), "Ill-posed system to derive shape functions");
+    constexpr auto terms_matrix = build_terms_matrix(
+        ShapeFunctionForm<Powers...>(), typeconst_list<Constraints...>());
+
+    return static_reduce<0, sizeof...(Constraints), 1>(
+        [=](auto I) {
+            constexpr auto coeffs = MetaLinAlg::linear_solve(terms_matrix,
+                                                             MetaLinAlg::canonical<I(), sizeof...(Constraints)>());
+            return multiply_coeffs(coeffs, ShapeFunctionForm<Powers...>());
+        },
+        typeconst_list<>(),
+        [](auto L, auto x) { return L.append(make_list(x)); });
+}
+
+template <class... Ns>
+struct EvaluateAt
+{
+    template <class Powers>
+    constexpr auto operator()(Powers) noexcept
     {
-        return std::tuple(Coords()...);
+        return Multinomials::raise(std::tuple(Ns()...), Powers());
     }
 };
 
 // Helper function to check types of coordinate variables.
 namespace
 {
+    
 template <class Coord, class... Coords>
 constexpr bool check_coords() noexcept
 {
@@ -113,75 +157,11 @@ constexpr bool check_coords() noexcept
 
 } // namespace
 
-/*!
- * @brief Construct a control point from list of coordinates.
- * 
- * Each coordinate argument to this function should be either a `Rational` or an
- * `integral_constant`. This is checked. The returned value is an N-dimensional
- * control point, where `N` is the number of coordinates given.
- * 
- * @param[in] coords... List of coordinates of the point.
- */
-template <class... Coords>
-constexpr auto control_point(Coords...)
+template <class... Ns>
+constexpr auto evaluate_at(Ns...) noexcept
 {
-    static_assert(check_coords<Coords...>(), "All coordinates should be rationals or integral_constants");
-    return ControlPoint<Coords...>();
-}
-
-// Here ends boilerplate for the DSL and begins the actual implementation of
-// deriving shape functions.
-namespace
-{
-
-template <class... Powers, class Pt>
-constexpr auto compute_power_values(typeconst_list<Powers...>, Pt) noexcept
-{
-    return make_list(Multinomials::raise(Pt::to_tuple(), Powers())...);
-}
-
-template <class... Powers, class... Pts>
-constexpr auto build_terms_matrix(ShapeFunctionForm<Powers...>, typeconst_list<Pts...>) noexcept
-{
-    return static_reduce<0, sizeof...(Pts), 1>(
-        [](auto I) {
-            return compute_power_values(typeconst_list<Powers...>(), get<I()>(typeconst_list<Pts...>()));
-        },
-        make_list(),
-        [](auto L, auto x) { return L.append(make_list(x)); });
-}
-
-template <class... Coeffs, class... Powers>
-constexpr auto multiply_coeffs(typeconst_list<Coeffs...>, ShapeFunctionForm<Powers...>) noexcept
-{
-    return Multinomials::multinomial(Multinomials::term(Coeffs(), Powers())...);
-}
-
-} // namespace
-
-/*!
- * @brief Given nodes (control points) of an element, derive shape functions.
- * 
- * This function derives multinomial shape functions on an element given the
- * locations of its nodes. The functions are derived by setting them equal to 1
- * at nodes, and equal to 0 on the others. The length of `Powers...` must equal
- * the length of `Pts...` to obtain a well-posed system.
- */
-template <class... Powers, class... Pts>
-constexpr auto derive_shape_functions(ShapeFunctionForm<Powers...>, typeconst_list<Pts...>) noexcept
-{
-    static_assert(sizeof...(Powers) == sizeof...(Pts), "Ill-posed system to derive shape functions");
-    constexpr auto terms_matrix = build_terms_matrix(
-        ShapeFunctionForm<Powers...>(), typeconst_list<Pts...>());
-
-    return static_reduce<0, sizeof...(Pts), 1>(
-        [=](auto I) {
-            constexpr auto coeffs = MetaLinAlg::linear_solve(terms_matrix,
-                                                             MetaLinAlg::canonical<I(), sizeof...(Pts)>());
-            return multiply_coeffs(coeffs, ShapeFunctionForm<Powers...>());
-        },
-        typeconst_list<>(),
-        [](auto L, auto x) { return L.append(make_list(x)); });
+    static_assert(check_coords<Ns...>(), "All coordinates should be rationals or integral_constants");
+    return EvaluateAt<Ns...>();
 }
 
 /********************************************************************************
@@ -194,21 +174,21 @@ constexpr auto derive_shape_functions(ShapeFunctionForm<Powers...>, typeconst_li
 using namespace Multinomials;
 using namespace Rationals;
 
-TEST_CASE("[Galerkin::Elements] Deriving multinomial shape functions")
+TEST_CASE("[Galerkin::Elements] Deriving one-dimensional shape functions")
 {
-    SUBCASE("Test for a one-dimensional element")
+    SUBCASE("Test for a first order element")
     {
         // Shape function has the form ax + b.
         constexpr auto form = make_form(
             powers(intgr_constant<1>),
             powers(intgr_constant<0>));
 
-        // Control points are -1, 1.
-        constexpr auto control_points = make_list(
-            control_point(rational<-1>),
-            control_point(rational<1>));
+        // Constraints are the function values at -1, 1.
+        constexpr auto constraints = make_list(
+            evaluate_at(rational<-1>),
+            evaluate_at(rational<1>));
 
-        constexpr auto fns = derive_shape_functions(form, control_points);
+        constexpr auto fns = derive_shape_functions(form, constraints);
 
         REQUIRE(get<0>(fns) ==
                 multinomial(
@@ -220,19 +200,19 @@ TEST_CASE("[Galerkin::Elements] Deriving multinomial shape functions")
                     term(rational<1, 2>, powers(intgr_constant<0>))));
     }
 
-    SUBCASE("Test for a quadratic one-dimensional element")
+    SUBCASE("Test for a second order element")
     {
         constexpr auto form = make_form(
             powers(intgr_constant<2>),
             powers(intgr_constant<1>),
             powers(intgr_constant<0>));
 
-        constexpr auto control_points = make_list(
-            control_point(rational<-1>),
-            control_point(rational<0>),
-            control_point(rational<1>));
+        constexpr auto constraints = make_list(
+            evaluate_at(rational<-1>),
+            evaluate_at(rational<0>),
+            evaluate_at(rational<1>));
         
-        constexpr auto fns = derive_shape_functions(form, control_points);
+        constexpr auto fns = derive_shape_functions(form, constraints);
 
         REQUIRE(get<0>(fns) ==
             multinomial(
