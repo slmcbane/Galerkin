@@ -131,7 +131,7 @@ template <class... Ns>
 struct EvaluateAt
 {
     template <class Powers>
-    constexpr auto operator()(Powers) noexcept
+    constexpr auto operator()(Powers) const noexcept
     {
         return Multinomials::raise(std::tuple(Ns()...), Powers());
     }
@@ -162,6 +162,50 @@ constexpr auto evaluate_at(Ns...) noexcept
 {
     static_assert(check_coords<Ns...>(), "All coordinates should be rationals or integral_constants");
     return EvaluateAt<Ns...>();
+}
+
+template <class CoordList, auto I, auto... Is>
+class PartialAt
+{
+public:
+    template <class Powers>
+    constexpr auto operator()(Powers) const noexcept
+    {
+        constexpr auto t = take_partials<I, Is...>(Powers());
+        return t(instantiate_tuple(CoordList()));
+    }
+
+private:
+
+    template <auto J, auto... Js, class Powers>
+    static constexpr auto take_partials(Powers) noexcept
+    {
+        constexpr auto first_partial = Multinomials::partial<J>(
+            Multinomials::term(Rationals::rational<1>, Powers())
+        );
+
+        if constexpr (sizeof...(Js) == 0)
+        {
+            return first_partial;
+        }
+        else
+        {
+            return first_partial.coeff() * take_partials<Js...>(first_partial.powers());
+        }
+    }
+
+    template <class... Coords>
+    static constexpr auto instantiate_tuple(typeconst_list<Coords...>) noexcept
+    {
+        return std::tuple(Coords()...);
+    }
+};
+
+template <auto I, auto... Is, class... Coords>
+constexpr auto partial_at(Coords...) noexcept
+{
+    static_assert(check_coords<Coords...>(), "All coordinates should be rationals or integral_constants");
+    return PartialAt<typeconst_list<Coords...>, I, Is...>();
 }
 
 /********************************************************************************
@@ -230,6 +274,53 @@ TEST_CASE("[Galerkin::Elements] Deriving one-dimensional shape functions")
             multinomial(
                 term(rational<1, 2>, powers(intgr_constant<2>)),
                 term(rational<1, 2>, powers(intgr_constant<1>))
+            ));
+    }
+
+    SUBCASE("Test for a 3rd-order element with derivative DOF's")
+    {
+        constexpr auto form = make_form(
+            powers(intgr_constant<3>),
+            powers(intgr_constant<2>),
+            powers(intgr_constant<1>),
+            powers(intgr_constant<0>));
+
+        constexpr auto constraints = make_list(
+            evaluate_at(rational<-1>),
+            evaluate_at(rational<1>),
+            partial_at<0>(rational<-1>),
+            partial_at<0>(rational<1>));
+
+        constexpr auto fns = derive_shape_functions(form, constraints);
+
+        REQUIRE(get<0>(fns) ==
+            multinomial(
+                term(rational<1, 4>, powers(intgr_constant<3>)),
+                term(-rational<3, 4>, powers(intgr_constant<1>)),
+                term(rational<1, 2>, powers(intgr_constant<0>))
+            ));
+
+        REQUIRE(get<1>(fns) ==
+            multinomial(
+                term(-rational<1, 4>, powers(intgr_constant<3>)),
+                term(rational<3, 4>, powers(intgr_constant<1>)),
+                term(rational<1, 2>, powers(intgr_constant<0>))
+            ));
+
+        REQUIRE(get<2>(fns) ==
+            multinomial(
+                term(rational<1, 4>, powers(intgr_constant<3>)),
+                term(-rational<1, 4>, powers(intgr_constant<2>)),
+                term(-rational<1, 4>, powers(intgr_constant<1>)),
+                term(rational<1, 4>, powers(intgr_constant<0>))
+            ));
+
+        REQUIRE(get<3>(fns) ==
+            multinomial(
+                term(rational<1, 4>, powers(intgr_constant<3>)),
+                term(rational<1, 4>, powers(intgr_constant<2>)),
+                term(-rational<1, 4>, powers(intgr_constant<1>)),
+                term(-rational<1, 4>, powers(intgr_constant<0>))
             ));
     }
 }

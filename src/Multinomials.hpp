@@ -146,8 +146,11 @@ constexpr auto operator+(Powers<vs...>, Powers<ws...>)
 template <class R, class P>
 struct Term
 {
+    static constexpr auto coeff() noexcept { return R(); }
+    static constexpr auto powers() noexcept { return P(); }
+
     template <class... Args>
-    constexpr auto operator()(std::tuple<Args...> args)
+    constexpr auto operator()(std::tuple<Args...> args) const noexcept
     {
         return R() * raise(args, P());
     }
