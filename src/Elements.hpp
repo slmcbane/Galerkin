@@ -325,6 +325,60 @@ TEST_CASE("[Galerkin::Elements] Deriving one-dimensional shape functions")
     }
 }
 
+TEST_CASE("[Galerkin::Elements] Deriving two-dimensional shape functions")
+{
+    SUBCASE("Test derivation of bilinear shape functions on a quadrilateral")
+    {
+        constexpr auto form = make_form(
+            powers(intgr_constant<1>, intgr_constant<1>),
+            powers(intgr_constant<1>, intgr_constant<0>),
+            powers(intgr_constant<0>, intgr_constant<1>),
+            powers(intgr_constant<0>, intgr_constant<0>)
+        );
+
+        constexpr auto constraints = make_list(
+            evaluate_at(rational<-1>, rational<-1>),
+            evaluate_at(rational<-1>, rational<1>),
+            evaluate_at(rational<1>, rational<1>),
+            evaluate_at(rational<1>, rational<-1>)
+        );
+
+        constexpr auto fns = derive_shape_functions(form, constraints);
+
+        REQUIRE(get<0>(fns) ==
+            multinomial(
+                term(rational<1, 4>, powers(intgr_constant<1>, intgr_constant<1>)),
+                term(-rational<1, 4>, powers(intgr_constant<1>, intgr_constant<0>)),
+                term(-rational<1, 4>, powers(intgr_constant<0>, intgr_constant<1>)),
+                term(rational<1, 4>, powers(intgr_constant<0>, intgr_constant<0>))
+            ));
+
+        REQUIRE(get<1>(fns) ==
+            multinomial(
+                term(-rational<1, 4>, powers(intgr_constant<1>, intgr_constant<1>)),
+                term(-rational<1, 4>, powers(intgr_constant<1>, intgr_constant<0>)),
+                term(rational<1, 4>, powers(intgr_constant<0>, intgr_constant<1>)),
+                term(rational<1, 4>, powers(intgr_constant<0>, intgr_constant<0>))
+            ));
+
+        REQUIRE(get<2>(fns) ==
+            multinomial(
+                term(rational<1, 4>, powers(intgr_constant<1>, intgr_constant<1>)),
+                term(rational<1, 4>, powers(intgr_constant<1>, intgr_constant<0>)),
+                term(rational<1, 4>, powers(intgr_constant<0>, intgr_constant<1>)),
+                term(rational<1, 4>, powers(intgr_constant<0>, intgr_constant<0>))
+            ));
+
+        REQUIRE(get<3>(fns) ==
+            multinomial(
+                term(-rational<1, 4>, powers(intgr_constant<1>, intgr_constant<1>)),
+                term(rational<1, 4>, powers(intgr_constant<1>, intgr_constant<0>)),
+                term(-rational<1, 4>, powers(intgr_constant<0>, intgr_constant<1>)),
+                term(rational<1, 4>, powers(intgr_constant<0>, intgr_constant<0>))
+            ));
+    }
+}
+
 #endif /* DOCTEST_LIBRARY_INCLUDED */
 
 /********************************************************************************
