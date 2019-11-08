@@ -1,6 +1,6 @@
 Galerkin
 ========
-### Functional Function Spaces
+## Functional Function Spaces
 
 Galerkin is a finite element toolbox tailored to re-use in research code that
 may need to customize data structures and algorithms. In my experience,
@@ -31,7 +31,7 @@ be on par with specialized hand-coded implementations.
 - Eliminate the need to do mathematical derivations and hard-code common
 constructs by hand; use modern C++ technique to make the compiler do it.
 
-### Features
+## Features
 In general I will be adding features to Galerkin as I use them. This section is
 also a roadmap for work that has yet to be completed.
 
@@ -61,9 +61,9 @@ tools provided. Mesh tools will include I/O for VTK and perhaps other formats
 for data exchange, or mesh generation. I have not decided what direction to
 take as far as integration of any linear algebra tools in Galerkin.
 
-### Examples
+## Examples
 
-# Generating shape functions
+### Generating shape functions
 
 Generate the shape functions for a 1-dimensional element with quadratic shape
 functions:
