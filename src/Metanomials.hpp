@@ -9,7 +9,7 @@
 
 #include "utils.hpp"
 #include "Rationals.hpp"
-
+#include "FunctionBase.hpp"
 namespace Galerkin
 {
 
@@ -258,7 +258,7 @@ constexpr auto map_nvars = [](auto Term) { return intgr_constant<nvars(Term)>; }
 
 // This struct is the type-level representation of a metanomial.
 template <class... Terms>
-struct Metanomial : public typeconst_list<Terms...>
+struct Metanomial : public typeconst_list<Terms...>, public Functions::FunctionBase<Metanomial<Terms...>>
 {
     static_assert(sizeof...(Terms) == 0 ||
                       typeconst_list<Terms...>().map(map_nvars).unique().count() == 1,
