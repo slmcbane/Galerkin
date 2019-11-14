@@ -8,7 +8,7 @@
 #include "doctest.hpp"
 
 #include "../src/Rationals.hpp"
-#include "../src/Multinomials.hpp"
+#include "../src/Metanomials.hpp"
 #include "../src/Legendre.hpp"
 #include "../src/Quadrature.hpp"
 #include "../src/MetaLinAlg.hpp"

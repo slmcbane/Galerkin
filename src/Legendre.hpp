@@ -1,7 +1,7 @@
 #ifndef LEGENDRE_HPP
 #define LEGENDRE_HPP
 
-#include "Multinomials.hpp"
+#include "Metanomials.hpp"
 
 #include <array>
 #include <limits>
@@ -16,22 +16,22 @@ namespace Legendre
 // clang.
 template <auto I>
 constexpr auto polynomial = 
-    (Multinomials::multinomial(
+    (Metanomials::metanomial(
         term(Rationals::rational<2*I-1>,
-             Multinomials::powers(intgr_constant<1>))) * polynomial<I-1>
+             Metanomials::powers(intgr_constant<1>))) * polynomial<I-1>
     - polynomial<I-2> * intgr_constant<I-1>) /
     intgr_constant<I>;
 
 template <>
-constexpr auto polynomial<0> = Multinomials::multinomial(
+constexpr auto polynomial<0> = Metanomials::metanomial(
     term(Rationals::rational<1>,
-         Multinomials::powers(intgr_constant<0>))
+         Metanomials::powers(intgr_constant<0>))
 );
 
 template <>
-constexpr auto polynomial<1> = Multinomials::multinomial(
+constexpr auto polynomial<1> = Metanomials::metanomial(
     term(Rationals::rational<1>,
-         Multinomials::powers(intgr_constant<1>))
+         Metanomials::powers(intgr_constant<1>))
 );
 
 /********************************************************************************
@@ -40,22 +40,22 @@ constexpr auto polynomial<1> = Multinomials::multinomial(
 
 #ifdef DOCTEST_LIBRARY_INCLUDED
 
-using namespace Multinomials;
+using namespace Metanomials;
 using namespace Rationals;
 
 TEST_CASE("Test computed Legendre polynomials")
 {
-    REQUIRE(polynomial<0> == Multinomials::multinomial(term(rational<1>, powers(intgr_constant<0>))));
-    REQUIRE(polynomial<1> == Multinomials::multinomial(term(rational<1>, powers(intgr_constant<1>))));
+    REQUIRE(polynomial<0> == Metanomials::metanomial(term(rational<1>, powers(intgr_constant<0>))));
+    REQUIRE(polynomial<1> == Metanomials::metanomial(term(rational<1>, powers(intgr_constant<1>))));
     REQUIRE(polynomial<2> ==
-        Multinomials::multinomial(
+        Metanomials::metanomial(
             term(rational<3, 2>, powers(intgr_constant<2>)),
             term(-rational<1, 2>, powers(intgr_constant<0>))
         )
     );
 
     REQUIRE(polynomial<10> ==
-        multinomial(
+        metanomial(
             term(rational<46189, 256>, powers(intgr_constant<10>)),
             term(-rational<109395, 256>, powers(intgr_constant<8>)),
             term(rational<90090, 256>, powers(intgr_constant<6>)),
@@ -74,7 +74,7 @@ TEST_CASE("Test computed Legendre polynomials")
 template <class T, class P>
 constexpr auto interval_root(P poly, T low, T high)
 {
-    auto pprime = Multinomials::partial<0>(poly);
+    constexpr auto pprime = P::template partial<0>();
     T mid = (high + low) / 2;
     constexpr auto abs = [] (auto x) { return x < 0 ? -x : x; };
     while (poly(mid) != zero<T>)

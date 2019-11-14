@@ -317,6 +317,12 @@ constexpr bool is_intgr_constant = false;
 template <auto v>
 constexpr bool is_intgr_constant<std::integral_constant<decltype(v), v>> = true;
 
+template <auto I, class T>
+constexpr auto partial(const T& x) noexcept
+{
+    return x.template partial<I>();
+}
+
 } /* namespace Galerkin */
 
 #endif /* UTILS_HPP */

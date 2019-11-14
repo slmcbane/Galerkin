@@ -41,7 +41,7 @@ constexpr auto legendre_weights() noexcept
 {
     std::array<T, N> weights{};
     constexpr std::array<T, N> roots = Legendre::roots<T, N>;
-    constexpr auto pprime = Multinomials::partial<0>(Legendre::polynomial<N>);
+    constexpr auto pprime = partial<0>(Legendre::polynomial<N>);
     int i = 0;
     for (T x : roots)
     {

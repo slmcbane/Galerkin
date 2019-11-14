@@ -8,7 +8,7 @@
 #define ELEMENTS_HPP
 
 #include "MetaLinAlg.hpp"
-#include "Multinomials.hpp"
+#include "Metanomials.hpp"
 #include "utils.hpp"
 
 #include <tuple>
@@ -21,11 +21,11 @@ namespace Elements
 {
 
 /*!
- * @brief Represents the form of a multinomial shape function.
+ * @brief Represents the form of a polynomial shape function.
  * 
  * The `ShapeFunctionForm` is just an empty variadic template struct, where the
  * template parameters are types of `Powers` classes representing the terms of a
- * multinomial. For example, the following:
+ * metanomial. For example, the following:
  * 
  *     constexpr ShapeFunctionForm<Powers<0, 0>, Powers<0, 1>, Powers<1, 0>, Powers<1, 1>> form{};
  * 
@@ -45,11 +45,11 @@ constexpr bool check_powers() noexcept
 {
     if constexpr (sizeof...(Ps) == 0)
     {
-        return Multinomials::is_powers<P>;
+        return Metanomials::is_powers<P>;
     }
     else
     {
-        return Multinomials::is_powers<P> && check_powers<Ps...>();
+        return Metanomials::is_powers<P> && check_powers<Ps...>();
     }
 }
 
@@ -94,7 +94,7 @@ constexpr auto build_terms_matrix(ShapeFunctionForm<Powers...>, typeconst_list<C
 template <class... Coeffs, class... Powers>
 constexpr auto multiply_coeffs(typeconst_list<Coeffs...>, ShapeFunctionForm<Powers...>) noexcept
 {
-    return Multinomials::multinomial(Multinomials::term(Coeffs(), Powers())...);
+    return Metanomials::metanomial(Metanomials::term(Coeffs(), Powers())...);
 }
 
 } // namespace
@@ -102,11 +102,11 @@ constexpr auto multiply_coeffs(typeconst_list<Coeffs...>, ShapeFunctionForm<Powe
 /*!
  * @brief Given degrees of freedom for an element, derive shape functions.
  * 
- * This function derives multinomial shape functions on an element given the
+ * This function derives polynomial shape functions on an element given the
  * degrees of freedom on the element in a functional form. The first argument is
- * a `ShapeFunctionForm` specifying the powers of the multinomial form, and the
+ * a `ShapeFunctionForm` specifying the powers of the metanomial form, and the
  * second is a `typeconst_list` of constraints. These take the form of a function
- * object accepting a `Powers` object (see `Multinomials.hpp` for interface) and
+ * object accepting a `Powers` object (see `Metanomials.hpp` for interface) and
  * returning a number as a `Rational`. Functors for the most common cases are
  * provided - see `evaluate_at` and `partial_at`.
  */
@@ -133,7 +133,7 @@ struct EvaluateAt
     template <class Powers>
     constexpr auto operator()(Powers) const noexcept
     {
-        return Multinomials::raise(std::tuple(Ns()...), Powers());
+        return Metanomials::raise(std::tuple(Ns()...), Powers());
     }
 };
 
@@ -180,8 +180,8 @@ private:
     template <auto J, auto... Js, class Powers>
     static constexpr auto take_partials(Powers) noexcept
     {
-        constexpr auto first_partial = Multinomials::partial<J>(
-            Multinomials::term(Rationals::rational<1>, Powers())
+        constexpr auto first_partial = partial<J>(
+            Metanomials::term(Rationals::rational<1>, Powers())
         );
 
         if constexpr (sizeof...(Js) == 0)
@@ -215,7 +215,7 @@ constexpr auto partial_at(Coords...) noexcept
 
 #ifdef DOCTEST_LIBRARY_INCLUDED
 
-using namespace Multinomials;
+using namespace Metanomials;
 using namespace Rationals;
 
 TEST_CASE("[Galerkin::Elements] Deriving one-dimensional shape functions")
@@ -235,11 +235,11 @@ TEST_CASE("[Galerkin::Elements] Deriving one-dimensional shape functions")
         constexpr auto fns = derive_shape_functions(form, constraints);
 
         REQUIRE(get<0>(fns) ==
-                multinomial(
+                metanomial(
                     term(-rational<1, 2>, powers(intgr_constant<1>)),
                     term(rational<1, 2>, powers(intgr_constant<0>))));
         REQUIRE(get<1>(fns) ==
-                multinomial(
+                metanomial(
                     term(rational<1, 2>, powers(intgr_constant<1>)),
                     term(rational<1, 2>, powers(intgr_constant<0>))));
     }
@@ -259,19 +259,19 @@ TEST_CASE("[Galerkin::Elements] Deriving one-dimensional shape functions")
         constexpr auto fns = derive_shape_functions(form, constraints);
 
         REQUIRE(get<0>(fns) ==
-            multinomial(
+            metanomial(
                 term(rational<1, 2>, powers(intgr_constant<2>)),
                 term(-rational<1, 2>, powers(intgr_constant<1>))
             ));
 
         REQUIRE(get<1>(fns) ==
-            multinomial(
+            metanomial(
                 term(-rational<1>, powers(intgr_constant<2>)),
                 term(rational<1>, powers(intgr_constant<0>))
             ));
 
         REQUIRE(get<2>(fns) ==
-            multinomial(
+            metanomial(
                 term(rational<1, 2>, powers(intgr_constant<2>)),
                 term(rational<1, 2>, powers(intgr_constant<1>))
             ));
@@ -294,21 +294,21 @@ TEST_CASE("[Galerkin::Elements] Deriving one-dimensional shape functions")
         constexpr auto fns = derive_shape_functions(form, constraints);
 
         REQUIRE(get<0>(fns) ==
-            multinomial(
+            metanomial(
                 term(rational<1, 4>, powers(intgr_constant<3>)),
                 term(-rational<3, 4>, powers(intgr_constant<1>)),
                 term(rational<1, 2>, powers(intgr_constant<0>))
             ));
 
         REQUIRE(get<1>(fns) ==
-            multinomial(
+            metanomial(
                 term(-rational<1, 4>, powers(intgr_constant<3>)),
                 term(rational<3, 4>, powers(intgr_constant<1>)),
                 term(rational<1, 2>, powers(intgr_constant<0>))
             ));
 
         REQUIRE(get<2>(fns) ==
-            multinomial(
+            metanomial(
                 term(rational<1, 4>, powers(intgr_constant<3>)),
                 term(-rational<1, 4>, powers(intgr_constant<2>)),
                 term(-rational<1, 4>, powers(intgr_constant<1>)),
@@ -316,7 +316,7 @@ TEST_CASE("[Galerkin::Elements] Deriving one-dimensional shape functions")
             ));
 
         REQUIRE(get<3>(fns) ==
-            multinomial(
+            metanomial(
                 term(rational<1, 4>, powers(intgr_constant<3>)),
                 term(rational<1, 4>, powers(intgr_constant<2>)),
                 term(-rational<1, 4>, powers(intgr_constant<1>)),
@@ -346,7 +346,7 @@ TEST_CASE("[Galerkin::Elements] Deriving two-dimensional shape functions")
         constexpr auto fns = derive_shape_functions(form, constraints);
 
         REQUIRE(get<0>(fns) ==
-            multinomial(
+            metanomial(
                 term(rational<1, 4>, powers(intgr_constant<1>, intgr_constant<1>)),
                 term(-rational<1, 4>, powers(intgr_constant<1>, intgr_constant<0>)),
                 term(-rational<1, 4>, powers(intgr_constant<0>, intgr_constant<1>)),
@@ -354,7 +354,7 @@ TEST_CASE("[Galerkin::Elements] Deriving two-dimensional shape functions")
             ));
 
         REQUIRE(get<1>(fns) ==
-            multinomial(
+            metanomial(
                 term(-rational<1, 4>, powers(intgr_constant<1>, intgr_constant<1>)),
                 term(-rational<1, 4>, powers(intgr_constant<1>, intgr_constant<0>)),
                 term(rational<1, 4>, powers(intgr_constant<0>, intgr_constant<1>)),
@@ -362,7 +362,7 @@ TEST_CASE("[Galerkin::Elements] Deriving two-dimensional shape functions")
             ));
 
         REQUIRE(get<2>(fns) ==
-            multinomial(
+            metanomial(
                 term(rational<1, 4>, powers(intgr_constant<1>, intgr_constant<1>)),
                 term(rational<1, 4>, powers(intgr_constant<1>, intgr_constant<0>)),
                 term(rational<1, 4>, powers(intgr_constant<0>, intgr_constant<1>)),
@@ -370,7 +370,7 @@ TEST_CASE("[Galerkin::Elements] Deriving two-dimensional shape functions")
             ));
 
         REQUIRE(get<3>(fns) ==
-            multinomial(
+            metanomial(
                 term(-rational<1, 4>, powers(intgr_constant<1>, intgr_constant<1>)),
                 term(rational<1, 4>, powers(intgr_constant<1>, intgr_constant<0>)),
                 term(-rational<1, 4>, powers(intgr_constant<0>, intgr_constant<1>)),

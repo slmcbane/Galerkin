@@ -13,10 +13,10 @@
 namespace Galerkin
 {
 
-namespace Multinomials
+namespace Metanomials
 {
 
-// This struct represent the powers that each term is raised to in a multinomial.
+// This struct represent the powers that each term is raised to in a metanomial.
 template <auto... vs>
 struct Powers
 {
@@ -82,7 +82,7 @@ constexpr auto powers(std::integral_constant<decltype(vs), vs>...)
  *******************************************************************************/
 #ifdef DOCTEST_LIBRARY_INCLUDED
 
-TEST_CASE("[Galerkin::Multinomials] make sure that is_powers works")
+TEST_CASE("[Galerkin::Metanomials] make sure that is_powers works")
 {
     REQUIRE(is_powers<decltype(powers(intgr_constant<1>, intgr_constant<2>))>);
     REQUIRE(!is_powers<bool>);
@@ -141,7 +141,40 @@ constexpr auto operator+(Powers<vs...>, Powers<ws...>)
     return Powers<(ws + vs)...>();
 }
 
-// This struct represents a term in a multinomial.
+template <auto... vs>
+constexpr auto powers_from_tuple(std::tuple<std::integral_constant<decltype(vs), vs>...>)
+{
+    return Powers<vs...>();
+}
+
+template <auto I, auto v, auto... vs>
+constexpr auto subtract_one(
+    std::tuple<std::integral_constant<decltype(v), v>,
+    std::integral_constant<decltype(vs), vs>...>)
+{
+    if constexpr (I == 0)
+    {
+        return std::tuple_cat(
+            std::tuple(intgr_constant<v-1>),
+            std::make_tuple(intgr_constant<vs>...)
+        );
+    }
+    else
+    {
+        return std::tuple_cat(
+            std::tuple(intgr_constant<v>),
+            subtract_one<I-1>(std::make_tuple(intgr_constant<vs>...))
+        );
+    }
+}
+
+template <auto I, auto... vs>
+constexpr auto subtract_one(Powers<vs...>)
+{
+    return powers_from_tuple(subtract_one<I>(std::tuple(intgr_constant<vs>...)));
+}
+
+// This struct represents a term in a metanomial.
 // R is a Rational type and P is a Powers type.
 template <class R, class P>
 struct Term
@@ -153,6 +186,21 @@ struct Term
     constexpr auto operator()(std::tuple<Args...> args) const noexcept
     {
         return R() * raise(args, P());
+    }
+
+    template <auto I>
+    static constexpr auto partial() noexcept
+    {
+        static_assert(I < nvars(P()));
+        constexpr auto pow = get_power<I>(P());
+        if constexpr (pow == 0)
+        {
+            return term(Rationals::rational<0>, P());
+        }
+        else
+        {
+            return term(R() * intgr_constant<get_power<I>(P())>, subtract_one<I>(P()));
+        }
     }
 };
 
@@ -201,20 +249,20 @@ constexpr auto operator-(Term<R, P>)
     return term(-R(), P());
 }
 
-// Helper to ensure that all terms in a multinomial have the same number of
+// Helper to ensure that all terms in a metanomial have the same number of
 // variables.
 namespace
 {
 constexpr auto map_nvars = [](auto Term) { return intgr_constant<nvars(Term)>; };
 }
 
-// This struct is the type-level representation of a multinomial.
+// This struct is the type-level representation of a metanomial.
 template <class... Terms>
-struct Multinomial : public typeconst_list<Terms...>
+struct Metanomial : public typeconst_list<Terms...>
 {
     static_assert(sizeof...(Terms) == 0 ||
                       typeconst_list<Terms...>().map(map_nvars).unique().count() == 1,
-                  "The number of variables in all terms of a Multinomial must be equal");
+                  "The number of variables in all terms of a Metanomial must be equal");
 
     template <class... Types>
     constexpr auto operator()(Types... args) const noexcept
@@ -239,16 +287,24 @@ struct Multinomial : public typeconst_list<Terms...>
                 this->head()(args));
         }
     }
+
+    template <auto I>
+    static constexpr auto partial() noexcept
+    {
+        static_assert(I < nvars(get<0>(static_cast<typeconst_list<Terms...>>(Metanomial<Terms...>()))),
+            "Index for partial derivative is > number of variables in polynomial");
+        return metanomial(Galerkin::partial<I>(Terms())...);
+    }
 };
 
 template <class... T1s, class... T2s>
-constexpr bool operator==(Multinomial<T1s...>, Multinomial<T2s...>)
+constexpr bool operator==(Metanomial<T1s...>, Metanomial<T2s...>)
 {
-    return std::is_same_v<Multinomial<T1s...>, Multinomial<T2s...>>;
+    return std::is_same_v<Metanomial<T1s...>, Metanomial<T2s...>>;
 }
 
 template <auto I, class... Terms>
-constexpr auto get_term(Multinomial<Terms...> mult)
+constexpr auto get_term(Metanomial<Terms...> mult)
 {
     return get<I>(static_cast<typeconst_list<Terms...>>(mult));
 }
@@ -256,7 +312,7 @@ constexpr auto get_term(Multinomial<Terms...> mult)
 template <class... Terms>
 constexpr auto mult_from_list(typeconst_list<Terms...>)
 {
-    return Multinomial<Terms...>();
+    return Metanomial<Terms...>();
 }
 
 template <class... Terms>
@@ -309,31 +365,31 @@ constexpr auto drop_zeros(typeconst_list<>)
 }
 
 template <class... Terms>
-constexpr auto multinomial(Terms...)
+constexpr auto metanomial(Terms...)
 {
-    constexpr auto lst = Multinomial<Terms...>::sorted();
+    constexpr auto lst = Metanomial<Terms...>::sorted();
     return mult_from_list(drop_zeros(combine_duplicate_powers(lst)));
 }
 
 template <class... Terms>
-constexpr auto nterms(Multinomial<Terms...>)
+constexpr auto nterms(Metanomial<Terms...>)
 {
-    return Multinomial<Terms...>::count();
+    return Metanomial<Terms...>::count();
 }
 
 /********************************************************************************
- * Test the basic constructor interface of a multinomial
+ * Test the basic constructor interface of a metanomial
  *******************************************************************************/
 
 #ifdef DOCTEST_LIBRARY_INCLUDED
 
 using Rationals::rational;
 
-TEST_CASE("[Galerkin::Multinomials] Creating multinomials")
+TEST_CASE("[Galerkin::Metanomials] Creating metanomials")
 {
     SUBCASE("Test that powers get sorted")
     {
-        constexpr auto mult = multinomial(
+        constexpr auto mult = metanomial(
             term(rational<1>, powers(intgr_constant<1>, intgr_constant<1>)),
             term(rational<1>, powers(intgr_constant<0>, intgr_constant<1>)),
             term(rational<1>, powers(intgr_constant<0>, intgr_constant<0>)),
@@ -345,7 +401,7 @@ TEST_CASE("[Galerkin::Multinomials] Creating multinomials")
         REQUIRE(get_term<3>(mult) == term(rational<1>, powers(intgr_constant<1>, intgr_constant<1>)));
         REQUIRE(nterms(mult) == 4);
 
-        constexpr auto mult2 = multinomial(
+        constexpr auto mult2 = metanomial(
             term(rational<1>, powers(intgr_constant<1>, intgr_constant<1>)),
             term(rational<1>, powers(intgr_constant<0>, intgr_constant<-1>)),
             term(rational<1>, powers(intgr_constant<0>, intgr_constant<0>)),
@@ -359,7 +415,7 @@ TEST_CASE("[Galerkin::Multinomials] Creating multinomials")
 
     SUBCASE("Test that terms with the same power get combined")
     {
-        constexpr auto mult = multinomial(
+        constexpr auto mult = metanomial(
             term(rational<1, 2>, powers(intgr_constant<0>)),
             term(rational<1>, powers(intgr_constant<1>)),
             term(rational<1, 2>, powers(intgr_constant<2>)),
@@ -370,7 +426,7 @@ TEST_CASE("[Galerkin::Multinomials] Creating multinomials")
         REQUIRE(get_term<1>(mult) == term(rational<1>, powers(intgr_constant<1>)));
         REQUIRE(get_term<2>(mult) == term(rational<1, 2>, powers(intgr_constant<2>)));
 
-        constexpr auto mult2 = multinomial(
+        constexpr auto mult2 = metanomial(
             term(rational<1, 2>, powers(intgr_constant<0>)),
             term(rational<1>, powers(intgr_constant<-1>)),
             term(rational<1, 2>, powers(intgr_constant<2>)),
@@ -384,7 +440,7 @@ TEST_CASE("[Galerkin::Multinomials] Creating multinomials")
 
     SUBCASE("Test that terms with a zero coefficient get dropped")
     {
-        constexpr auto mult = multinomial(
+        constexpr auto mult = metanomial(
             term(rational<1>, powers(intgr_constant<1>)),
             term(rational<1>, powers(intgr_constant<0>)),
             term(rational<0>, powers(intgr_constant<2>)));
@@ -398,48 +454,48 @@ TEST_CASE("[Galerkin::Multinomials] Creating multinomials")
 #endif
 
 /********************************************************************************
- * End of basic construction of multinomial tests.
+ * End of basic construction of metanomial tests.
  *******************************************************************************/
 
 template <class... Terms1, class... Terms2>
-constexpr auto operator+(Multinomial<Terms1...>, Multinomial<Terms2...>)
+constexpr auto operator+(Metanomial<Terms1...>, Metanomial<Terms2...>)
 {
-    return multinomial(Terms1()..., Terms2()...);
+    return metanomial(Terms1()..., Terms2()...);
 }
 
 template <class... Terms1, class... Terms2>
-constexpr auto operator-(Multinomial<Terms1...>, Multinomial<Terms2...>)
+constexpr auto operator-(Metanomial<Terms1...>, Metanomial<Terms2...>)
 {
-    return multinomial(Terms1()..., -Terms2()...);
+    return metanomial(Terms1()..., -Terms2()...);
 }
 
 template <class... Terms>
-constexpr auto operator-(Multinomial<Terms...>)
+constexpr auto operator-(Metanomial<Terms...>)
 {
-    return multinomial(-Terms()...);
+    return metanomial(-Terms()...);
 }
 
 /********************************************************************************
- * Test addition and subtraction of multinomials.
+ * Test addition and subtraction of metanomials.
  *******************************************************************************/
 
 #ifdef DOCTEST_LIBRARY_INCLUDED
 
-TEST_CASE("[Galerkin::Multinomials] Addition and subtraction of multinomials")
+TEST_CASE("[Galerkin::Metanomials] Addition and subtraction of metanomials")
 {
     SUBCASE("All terms have the same powers")
     {
-        constexpr auto mult1 = multinomial(
+        constexpr auto mult1 = metanomial(
             term(rational<1, 2>, powers(intgr_constant<0>, intgr_constant<0>)),
             term(rational<1, 3>, powers(intgr_constant<0>, intgr_constant<1>)),
             term(rational<1>, powers(intgr_constant<1>, intgr_constant<0>)));
 
-        constexpr auto mult2 = multinomial(
+        constexpr auto mult2 = metanomial(
             term(rational<1, 2>, powers(intgr_constant<0>, intgr_constant<0>)),
             term(rational<1, 3>, powers(intgr_constant<0>, intgr_constant<1>)),
             term(-rational<1, 2>, powers(intgr_constant<1>, intgr_constant<0>)));
 
-        constexpr auto mult3 = multinomial(
+        constexpr auto mult3 = metanomial(
             term(rational<1>, powers(intgr_constant<0>, intgr_constant<0>)),
             term(rational<2, 3>, powers(intgr_constant<0>, intgr_constant<1>)),
             term(rational<1, 2>, powers(intgr_constant<1>, intgr_constant<0>)));
@@ -447,31 +503,31 @@ TEST_CASE("[Galerkin::Multinomials] Addition and subtraction of multinomials")
         REQUIRE(mult1 + mult2 == mult3);
         REQUIRE(mult3 - mult2 == mult1);
         REQUIRE(mult3 - mult1 == mult2);
-        REQUIRE(mult3 - mult1 - mult2 == multinomial());
+        REQUIRE(mult3 - mult1 - mult2 == metanomial());
 
-        constexpr auto mult4 = multinomial(
+        constexpr auto mult4 = metanomial(
             term(rational<3, 2>, powers(intgr_constant<1>, intgr_constant<0>)));
 
         REQUIRE(mult1 - mult2 == mult4);
         REQUIRE(mult4 + mult2 == mult1);
-        REQUIRE(mult1 - mult2 - mult4 == multinomial());
+        REQUIRE(mult1 - mult2 - mult4 == metanomial());
     }
 
     SUBCASE("Terms have different powers, should merge")
     {
-        constexpr auto mult1 = multinomial(
+        constexpr auto mult1 = metanomial(
             term(rational<1>, powers(intgr_constant<0>)),
             term(rational<1>, powers(intgr_constant<2>)));
 
-        constexpr auto mult2 = multinomial(
+        constexpr auto mult2 = metanomial(
             term(rational<1>, powers(intgr_constant<1>)));
 
-        constexpr auto mult3 = multinomial(
+        constexpr auto mult3 = metanomial(
             term(rational<1>, powers(intgr_constant<0>)),
             term(rational<1>, powers(intgr_constant<1>)),
             term(rational<1>, powers(intgr_constant<2>)));
 
-        constexpr auto mult4 = multinomial(
+        constexpr auto mult4 = metanomial(
             term(rational<1>, powers(intgr_constant<0>)),
             term(rational<1>, powers(intgr_constant<2>)),
             term(-rational<1>, powers(intgr_constant<1>)));
@@ -488,7 +544,7 @@ TEST_CASE("[Galerkin::Multinomials] Addition and subtraction of multinomials")
 #endif
 
 /********************************************************************************
- * End of multinomial addition and subtraction tests.
+ * End of metanomial addition and subtraction tests.
  *******************************************************************************/
 
 template <class R1, class P1, class R2, class P2>
@@ -516,9 +572,9 @@ constexpr auto operator*(std::integral_constant<I, v>, Term<R1, P1>)
 }
 
 template <class R, class P, class... Terms>
-constexpr auto operator*(Term<R, P> t, Multinomial<Terms...>)
+constexpr auto operator*(Term<R, P> t, Metanomial<Terms...>)
 {
-    return multinomial(t * Terms()...);
+    return metanomial(t * Terms()...);
 }
 
 template <class R, class P, auto N, auto D>
@@ -540,68 +596,68 @@ constexpr auto operator*(Rationals::Rational<N, D>, Term<R, P>)
 }
 
 template <class... Terms1, class... Terms2>
-constexpr auto operator*(Multinomial<Terms1...> mult1, Multinomial<Terms2...> mult2)
+constexpr auto operator*(Metanomial<Terms1...> mult1, Metanomial<Terms2...> mult2)
 {
     return static_sum<0, mult2.count()>(
         [=](auto I) { return get_term<I()>(mult2) * mult1; },
-        multinomial());
+        metanomial());
 }
 
 template <class... Terms, class I, I v>
-constexpr auto operator*(Multinomial<Terms...>, std::integral_constant<I, v>)
+constexpr auto operator*(Metanomial<Terms...>, std::integral_constant<I, v>)
 {
-    return multinomial(std::integral_constant<I, v>() * Terms()...);
+    return metanomial(std::integral_constant<I, v>() * Terms()...);
 }
 
 template <class... Terms, auto N, auto D>
-constexpr auto operator*(Multinomial<Terms...>, Rationals::Rational<N, D>)
+constexpr auto operator*(Metanomial<Terms...>, Rationals::Rational<N, D>)
 {
-    return multinomial(Rationals::rational<N, D> * Terms()...);
+    return metanomial(Rationals::rational<N, D> * Terms()...);
 }
 
 template <class... Terms, class I, I v>
-constexpr auto operator/(Multinomial<Terms...>, std::integral_constant<I, v>)
+constexpr auto operator/(Metanomial<Terms...>, std::integral_constant<I, v>)
 {
-    return multinomial( (Terms() / std::integral_constant<I, v>())... );
+    return metanomial( (Terms() / std::integral_constant<I, v>())... );
 }
 
 template <class... Terms, auto N, auto D>
-constexpr auto operator/(Multinomial<Terms...>, Rationals::Rational<N, D>)
+constexpr auto operator/(Metanomial<Terms...>, Rationals::Rational<N, D>)
 {
-    return multinomial( (Terms() / Rationals::rational<N, D>)... );
+    return metanomial( (Terms() / Rationals::rational<N, D>)... );
 }
 
 /********************************************************************************
- * Test multiplication of multinomials (by multinomial and by scalar constant).
- * Division by a scalar is implemented, but not multinomial division.
+ * Test multiplication of metanomials (by metanomial and by scalar constant).
+ * Division by a scalar is implemented, but not metanomial division.
  *******************************************************************************/
 
 #ifdef DOCTEST_LIBRARY_INCLUDED
 
-TEST_CASE("[Galerkin::Multinomials] Test multiplication and division of multinomials")
+TEST_CASE("[Galerkin::Metanomials] Test multiplication and division of metanomials")
 {
     SUBCASE("Multiplication of polynomials")
     {
-        constexpr auto mult1 = multinomial(
+        constexpr auto mult1 = metanomial(
             term(rational<1>, powers(intgr_constant<2>)),
             term(rational<1, 2>, powers(intgr_constant<0>)));
 
-        constexpr auto mult2 = multinomial(
+        constexpr auto mult2 = metanomial(
             term(rational<1>, powers(intgr_constant<2>)),
             term(-rational<1, 2>, powers(intgr_constant<0>)));
 
-        constexpr auto mult3 = multinomial(
+        constexpr auto mult3 = metanomial(
             term(rational<1>, powers(intgr_constant<4>)),
             term(-rational<1, 4>, powers(intgr_constant<0>)));
 
         REQUIRE(mult1 * mult2 == mult3);
 
-        constexpr auto mult4 = multinomial(
+        constexpr auto mult4 = metanomial(
             term(rational<1>, powers(intgr_constant<2>)),
             term(rational<2>, powers(intgr_constant<1>)),
             term(rational<3>, powers(intgr_constant<0>)));
 
-        constexpr auto mult5 = multinomial(
+        constexpr auto mult5 = metanomial(
             term(rational<1>, powers(intgr_constant<4>)),
             term(rational<2>, powers(intgr_constant<3>)),
             term(rational<7, 2>, powers(intgr_constant<2>)),
@@ -611,19 +667,19 @@ TEST_CASE("[Galerkin::Multinomials] Test multiplication and division of multinom
         REQUIRE(mult1 * mult4 == mult5);
     }
 
-    SUBCASE("Multiplication of multinomials")
+    SUBCASE("Multiplication of metanomials")
     {
-        constexpr auto mult1 = multinomial(
+        constexpr auto mult1 = metanomial(
             term(rational<1>, powers(intgr_constant<2>, intgr_constant<0>)),
             term(rational<2>, powers(intgr_constant<1>, intgr_constant<0>)),
             term(rational<3>, powers(intgr_constant<0>, intgr_constant<0>)));
 
-        constexpr auto mult2 = multinomial(
+        constexpr auto mult2 = metanomial(
             term(rational<3>, powers(intgr_constant<0>, intgr_constant<2>)),
             term(rational<2>, powers(intgr_constant<0>, intgr_constant<1>)),
             term(rational<1>, powers(intgr_constant<0>, intgr_constant<0>)));
 
-        constexpr auto mult3 = multinomial(
+        constexpr auto mult3 = metanomial(
             term(rational<3>, powers(intgr_constant<2>, intgr_constant<2>)),
             term(rational<2>, powers(intgr_constant<2>, intgr_constant<1>)),
             term(rational<1>, powers(intgr_constant<2>, intgr_constant<0>)),
@@ -639,14 +695,14 @@ TEST_CASE("[Galerkin::Multinomials] Test multiplication and division of multinom
 
     SUBCASE("Multiplication by a scalar")
     {
-        constexpr auto mult1 = multinomial(
+        constexpr auto mult1 = metanomial(
             term(rational<1>, powers(intgr_constant<4>)),
             term(rational<2>, powers(intgr_constant<3>)),
             term(rational<7, 2>, powers(intgr_constant<2>)),
             term(rational<1>, powers(intgr_constant<1>)),
             term(rational<3, 2>, powers(intgr_constant<0>)));
 
-        constexpr auto mult2 = multinomial(
+        constexpr auto mult2 = metanomial(
             term(rational<1, 2>, powers(intgr_constant<4>)),
             term(rational<1>, powers(intgr_constant<3>)),
             term(rational<7, 4>, powers(intgr_constant<2>)),
@@ -654,7 +710,7 @@ TEST_CASE("[Galerkin::Multinomials] Test multiplication and division of multinom
             term(rational<3, 4>, powers(intgr_constant<0>))
         );
 
-        constexpr auto mult3 = multinomial(
+        constexpr auto mult3 = metanomial(
             term(rational<-3>, powers(intgr_constant<4>)),
             term(rational<-6>, powers(intgr_constant<3>)),
             term(-rational<21, 2>, powers(intgr_constant<2>)),
@@ -668,7 +724,7 @@ TEST_CASE("[Galerkin::Multinomials] Test multiplication and division of multinom
 
     SUBCASE("Division by a scalar")
     {
-        constexpr auto mult1 = multinomial(
+        constexpr auto mult1 = metanomial(
             term(rational<1>, powers(intgr_constant<2>, intgr_constant<0>)),
             term(rational<2>, powers(intgr_constant<1>, intgr_constant<0>)),
             term(rational<3>, powers(intgr_constant<0>, intgr_constant<0>)));
@@ -685,16 +741,16 @@ TEST_CASE("[Galerkin::Multinomials] Test multiplication and division of multinom
  *******************************************************************************/
 
 /********************************************************************************
- * Test application of a multinomial
+ * Test application of a metanomial
  *******************************************************************************/
 
 #ifdef DOCTEST_LIBRARY_INCLUDED
 
-TEST_CASE("[Galerkin::Multinomials] Multinomial application")
+TEST_CASE("[Galerkin::Metanomials] Metanomial application")
 {
     SUBCASE("Applying a polynomial")
     {
-        constexpr auto mult1 = multinomial(
+        constexpr auto mult1 = metanomial(
             term(rational<1>, powers(intgr_constant<2>)),
             term(rational<2>, powers(intgr_constant<1>)),
             term(rational<1>, powers(intgr_constant<0>)));
@@ -703,7 +759,7 @@ TEST_CASE("[Galerkin::Multinomials] Multinomial application")
         REQUIRE(mult1(0.5) == doctest::Approx(2.25));
         REQUIRE(mult1(0.5f) == doctest::Approx(2.25f));
 
-        constexpr auto mult2 = multinomial(
+        constexpr auto mult2 = metanomial(
             term(rational<1>, powers(intgr_constant<-2>)),
             term(rational<2>, powers(intgr_constant<1>)),
             term(rational<1>, powers(intgr_constant<0>)));
@@ -712,9 +768,9 @@ TEST_CASE("[Galerkin::Multinomials] Multinomial application")
         REQUIRE(mult2(0.5) == doctest::Approx(6.0));
     }
 
-    SUBCASE("Applying a true multinomial")
+    SUBCASE("Applying a true metanomial")
     {
-        constexpr auto mult = multinomial(
+        constexpr auto mult = metanomial(
             term(rational<3, 4>, powers(intgr_constant<2>, intgr_constant<1>)),
             term(rational<1, 4>, powers(intgr_constant<1>, intgr_constant<1>)),
             term(rational<1, 2>, powers(intgr_constant<1>, intgr_constant<0>)),
@@ -727,7 +783,7 @@ TEST_CASE("[Galerkin::Multinomials] Multinomial application")
         REQUIRE(mult(rational<1, 2>, rational<1, 3>) == rational<163, 144>);
         REQUIRE(mult(0.5, 1.0 / 3) == doctest::Approx(163.0 / 144));
 
-        constexpr auto mult2 = multinomial(
+        constexpr auto mult2 = metanomial(
             term(rational<3, 4>, powers(intgr_constant<-2>, intgr_constant<1>)),
             term(rational<1, 4>, powers(intgr_constant<1>, intgr_constant<1>)),
             term(rational<1, 2>, powers(intgr_constant<1>, intgr_constant<0>)),
@@ -746,90 +802,35 @@ TEST_CASE("[Galerkin::Multinomials] Multinomial application")
 #endif
 
 /********************************************************************************
- * End of multinomial application tests.
+ * End of metanomial application tests.
  *******************************************************************************/
 
-template <auto... vs>
-constexpr auto powers_from_tuple(std::tuple<std::integral_constant<decltype(vs), vs>...>)
-{
-    return Powers<vs...>();
-}
-
-template <auto I, auto v, auto... vs>
-constexpr auto subtract_one(
-    std::tuple<std::integral_constant<decltype(v), v>,
-    std::integral_constant<decltype(vs), vs>...>)
-{
-    if constexpr (I == 0)
-    {
-        return std::tuple_cat(
-            std::tuple(intgr_constant<v-1>),
-            std::make_tuple(intgr_constant<vs>...)
-        );
-    }
-    else
-    {
-        return std::tuple_cat(
-            std::tuple(intgr_constant<v>),
-            subtract_one<I-1>(std::make_tuple(intgr_constant<vs>...))
-        );
-    }
-}
-
-template <auto I, auto... vs>
-constexpr auto subtract_one(Powers<vs...>)
-{
-    return powers_from_tuple(subtract_one<I>(std::tuple(intgr_constant<vs>...)));
-}
-
-template <auto I, class R, class P>
-constexpr auto partial(Term<R, P>)
-{
-    static_assert(I < nvars(P()));
-    constexpr auto pow = get_power<I>(P());
-    if constexpr (pow == 0)
-    {
-        return term(Rationals::rational<0>, P());
-    }
-    else
-    {
-        return term(R() * intgr_constant<get_power<I>(P())>, subtract_one<I>(P()));
-    }
-}
-
-template <auto I, class... Terms>
-constexpr auto partial(Multinomial<Terms...>)
-{
-    static_assert(I < nvars(get_term<0>(Multinomial<Terms...>())));
-    return multinomial(partial<I>(Terms())...);
-}
-
 /********************************************************************************
- * Test for partial derivatives of a multinomial
+ * Test for partial derivatives of a metanomial
  *******************************************************************************/
 
 #ifdef DOCTEST_LIBRARY_INCLUDED
 
-TEST_CASE("Partial derivatives of a multinomial")
+TEST_CASE("Partial derivatives of a metanomial")
 {
     SUBCASE("Test for a polynomial")
     {
-        constexpr auto mult1 = multinomial(
+        constexpr auto mult1 = metanomial(
             term(rational<1>, powers(intgr_constant<2>)),
             term(rational<2>, powers(intgr_constant<1>)),
             term(rational<1>, powers(intgr_constant<0>)));
 
-        constexpr auto mult2 = multinomial(
+        constexpr auto mult2 = metanomial(
             term(rational<2>, powers(intgr_constant<1>)),
             term(rational<2>, powers(intgr_constant<0>))
         );
 
-        REQUIRE(partial<0>(mult1) == mult2);
+        REQUIRE(mult1.partial<0>() == mult2);
     }
 
-    SUBCASE("Test for a multinomial")
+    SUBCASE("Test for a metanomial")
     {
-        constexpr auto mult = multinomial(
+        constexpr auto mult = metanomial(
             term(rational<3, 4>, powers(intgr_constant<2>, intgr_constant<1>)),
             term(rational<1, 4>, powers(intgr_constant<1>, intgr_constant<1>)),
             term(rational<1, 2>, powers(intgr_constant<1>, intgr_constant<0>)),
@@ -837,25 +838,25 @@ TEST_CASE("Partial derivatives of a multinomial")
             term(rational<2, 3>, powers(intgr_constant<0>, intgr_constant<0>))
         );
 
-        constexpr auto dmult0 = multinomial(
+        constexpr auto dmult0 = metanomial(
             term(rational<6, 4>, powers(intgr_constant<1>, intgr_constant<1>)),
             term(rational<1, 4>, powers(intgr_constant<0>, intgr_constant<1>)),
             term(rational<1, 2>, powers(intgr_constant<0>, intgr_constant<0>))
         );
 
-        constexpr auto dmult1 = multinomial(
+        constexpr auto dmult1 = metanomial(
             term(rational<3, 4>, powers(intgr_constant<2>, intgr_constant<0>)),
             term(rational<1, 4>, powers(intgr_constant<1>, intgr_constant<0>)),
             term(rational<1, 3>, powers(intgr_constant<0>, intgr_constant<0>))
         );
 
-        REQUIRE(partial<0>(mult) == dmult0);
-        REQUIRE(partial<1>(mult) == dmult1);
+        REQUIRE(mult.partial<0>() == dmult0);
+        REQUIRE(mult.partial<1>() == dmult1);
     }
 
-    SUBCASE("Test for a multinomial containing negative powers")
+    SUBCASE("Test for a metanomial containing negative powers")
     {
-        constexpr auto mult = multinomial(
+        constexpr auto mult = metanomial(
             term(rational<3, 4>, powers(intgr_constant<2>, intgr_constant<-1>)),
             term(rational<1, 4>, powers(intgr_constant<1>, intgr_constant<1>)),
             term(rational<1, 2>, powers(intgr_constant<-1>, intgr_constant<0>)),
@@ -863,20 +864,20 @@ TEST_CASE("Partial derivatives of a multinomial")
             term(rational<2, 3>, powers(intgr_constant<0>, intgr_constant<0>))
         );
 
-        constexpr auto dmult0 = multinomial(
+        constexpr auto dmult0 = metanomial(
             term(rational<6, 4>, powers(intgr_constant<1>, intgr_constant<-1>)),
             term(rational<1, 4>, powers(intgr_constant<0>, intgr_constant<1>)),
             term(-rational<1, 2>, powers(intgr_constant<-2>, intgr_constant<0>))
         );
 
-        constexpr auto dmult1 = multinomial(
+        constexpr auto dmult1 = metanomial(
             term(-rational<3, 4>, powers(intgr_constant<2>, intgr_constant<-2>)),
             term(rational<1, 4>, powers(intgr_constant<1>, intgr_constant<0>)),
             term(rational<1, 3>, powers(intgr_constant<0>, intgr_constant<0>))
         );
 
-        REQUIRE(partial<0>(mult) == dmult0);
-        REQUIRE(partial<1>(mult) == dmult1);
+        REQUIRE(mult.partial<0>() == dmult0);
+        REQUIRE(mult.partial<1>() == dmult1);
     }
 }
 
@@ -886,7 +887,7 @@ TEST_CASE("Partial derivatives of a multinomial")
  * End of partial derivative tests.
  *******************************************************************************/
 
-} /* namespace Multinomials */
+} /* namespace Metanomials */
 
 } /* namespace Galerkin */
 
