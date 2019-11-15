@@ -65,6 +65,39 @@ constexpr auto raise(std::tuple<Args...> args, Powers<v, vs...>)
     }
 }
 
+namespace
+{
+
+template <auto N, class T, auto v, auto... vs>
+constexpr auto array_raise_impl(const T& args, Powers<v, vs...>) noexcept
+{
+    auto raised = raise_arg(args[N], Powers<v>());
+    if constexpr (sizeof...(vs) == 0)
+    {
+        return raised;
+    }
+    else
+    {
+        return raised * array_raise_impl<N+1>(args, Powers<vs...>());
+    }
+}
+
+} // namespace
+
+/*!
+ * @brief Overload assumes `args` support indexing with brackets
+ * 
+ * For all argument types that are not std::tuple, this overload is called; if
+ * `args` can be indexed with square brackets and has the right number of
+ * entries, this function performs the appropriate operation. Not very safe, but
+ * I don't know how to write it generically and bounds check.
+ */
+template <class T, auto v, auto... vs>
+constexpr auto raise(const T& args, Powers<v, vs...>) noexcept
+{
+    return array_raise_impl<0>(args, Powers<v, vs...>());
+}
+
 template <auto... vs>
 constexpr auto nvars(Powers<vs...>) { return sizeof...(vs); }
 
