@@ -70,20 +70,49 @@ private:
     F2 m_f2;
 };
 
+template <class F1, class F2>
+class FunctionQuotient : public FunctionBase<FunctionQuotient<F1, F2>>
+{
+public:
+    constexpr FunctionQuotient(const F1 &a, const F2 &b) : m_f1(a), m_f2(b) {}
+
+    template <auto I>
+    constexpr auto partial() const noexcept
+    {
+        return (m_f2 * partial<I>(m_f1) - m_f1 * partial<I>(m_f2)) / (m_f2 * m_f2);
+    }
+
+    template <class... T>
+    constexpr auto operator()(const T &... x) const noexcept
+    {
+        return m_f1(x...) / m_f2(x...);
+    }
+
+private:
+    F1 m_f1;
+    F2 m_f2;
+};
+
 template <class Derived>
 class FunctionBase
 {
 public:
-    template <class OtherDerived>
-    constexpr auto operator+(const FunctionBase<OtherDerived> &other) const noexcept
+    template <class Other>
+    constexpr auto operator+(const Other &other) const noexcept
     {
-        return FunctionSum(*this, other);
+        return FunctionSum(static_cast<const Derived&>(*this), other);
     }
 
-    template <class OtherDerived>
-    constexpr auto operator*(const FunctionBase<OtherDerived> &other) const noexcept
+    template <class Other>
+    constexpr auto operator*(const Other &other) const noexcept
     {
-        return FunctionProduct(*this, other);
+        return FunctionProduct(static_cast<const Derived&>(*this), other);
+    }
+
+    template <class... T>
+    constexpr auto operator()(const T &... x) const noexcept
+    {
+        return static_cast<const Derived*>(*this)->operator()(x...);
     }
 
 private:
