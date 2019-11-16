@@ -13,3 +13,4 @@
 #include "../src/Quadrature.hpp"
 #include "../src/MetaLinAlg.hpp"
 #include "../src/Elements.hpp"
+#include "../src/Polynomials.hpp"
