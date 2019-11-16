@@ -109,6 +109,12 @@ public:
         return FunctionProduct(static_cast<const Derived&>(*this), other);
     }
 
+    template <class Other>
+    constexpr auto operator/(const Other &other) const noexcept
+    {
+        return FunctionQuotient(static_cast<const Derived&>(*this), other);
+    }
+
     template <class... T>
     constexpr auto operator()(const T &... x) const noexcept
     {
