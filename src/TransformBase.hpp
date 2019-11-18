@@ -20,7 +20,7 @@ public:
      * @brief Call operator just forward arguments to the derived operator.
      */
     template <class... T>
-    constexpr auto operator()(const T... &args) const noexcept
+    constexpr auto operator()(const T&... args) const noexcept
     {
         return derived()(args...);
     }
@@ -46,9 +46,9 @@ public:
     template <auto I, class F>
     constexpr auto partial(const F& f) const noexcept
     {
-        auto first_term = f.partial<0>() * derived().inv_jacobian<0, I>();
+        auto first_term = partial<0>(f) * derived().template inv_jacobian<0, I>();
         return static_sum<1, N>(
-            [&](auto J) { return f.partial<J()>() * derived().inv_jacobian<J(), I>(); },
+            [&](auto J) { return partial<J()>(f) * derived().template inv_jacobian<J(), I>(); },
             first_term
         );
     }
@@ -59,17 +59,16 @@ public:
      * The template parameter (>= 0) specifies a desired order of accuracy of the
      * integration; polynomials of order less than or equal to `I` will be
      * integrated exactly, assuming that the derived class faithfully implements
-     * `integration_rule`.
+     * `quadrature`.
      * 
      * The function integrated is `g(x) = f(inverse_transform(x))`, where `x` is
      * the transformed coordinate. The argument to the function is `f` in the
      * above equation.
      */
-    template <auto I>
+    template <auto I, class F>
     constexpr auto integrate(const F& f) const noexcept
     {
-        constexpr auto rule = derived().quadrature_rule<I>();
-        return multidim_quadrature(f / derived.detJ());
+        return derived().quadrature<I>(f * derived().detJ());
     }
     
 private:
