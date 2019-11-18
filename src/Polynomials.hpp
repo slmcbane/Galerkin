@@ -24,7 +24,7 @@ class Polynomial : public Functions::FunctionBase<Polynomial<T, Powers...>>
 {
 public:
     template <class... Args>
-    constexpr Polynomial(Args... args) noexcept : m_coeffs{args...}
+    constexpr Polynomial(Args... args) noexcept : m_coeffs{static_cast<T>(args)...}
     {
         static_assert(sizeof...(Args) == sizeof...(Powers));
     }
@@ -109,6 +109,49 @@ TEST_CASE("[Galerkin::Polynomials] Basic arithmetic and evaluation of polynomial
         REQUIRE(p_by_g(std::tuple(1.5)) == doctest::Approx(1.25 / 2.5));
         REQUIRE(p_by_g(std::tuple(2)) == 1);
         REQUIRE(p_by_g(x) == doctest::Approx(2.0));
+    }
+
+    SUBCASE("Test functionality with a multi-variable polynomial")
+    {
+        // p(x, y) = x^2 + 2xy - 2y + 1
+        constexpr auto p = Polynomial<double, Metanomials::Powers<2, 0>,
+                                      Metanomials::Powers<1, 1>,
+                                      Metanomials::Powers<0, 1>,
+                                      Metanomials::Powers<0, 0>
+                                     >(1, 2, -2, 1);
+        // g(x, y) = y^2 - x + 2
+        constexpr auto g = Polynomial<double, Metanomials::Powers<0, 2>,
+                                      Metanomials::Powers<1, 0>, Metanomials::Powers<0, 0>
+                                     >(1, -1, 2);
+
+        // Evaluation points
+        constexpr auto point1 = std::tuple(Rationals::rational<1, 2>, -Rationals::rational<1, 2>);
+        constexpr auto point2 = std::array<double, 2>{3.0 / 4, 0 };
+        constexpr auto point3 = std::tuple(1.0, -3.0 / 2);
+
+        REQUIRE(p(point1) == doctest::Approx(7.0 / 4));
+        REQUIRE(p(point2) == doctest::Approx(25.0 / 16));
+        REQUIRE(p(point3) == doctest::Approx(2.0));
+
+        REQUIRE(g(point1) == doctest::Approx(7.0 / 4));
+        REQUIRE(g(point2) == doctest::Approx(5.0 / 4));
+        REQUIRE(g(point3) == doctest::Approx(13.0 / 4));
+
+        constexpr auto p_plus_g = p + g;
+        constexpr auto p_times_g = p * g;
+        constexpr auto p_by_g = p / g;
+
+        REQUIRE(p_plus_g(point1) == doctest::Approx(14.0 / 4));
+        REQUIRE(p_plus_g(point2) == doctest::Approx(25.0 / 16 + 5.0 / 4));
+        REQUIRE(p_plus_g(point3) == doctest::Approx(2.0 + 13.0 / 4));
+
+        REQUIRE(p_times_g(point1) == doctest::Approx(49.0 / 16));
+        REQUIRE(p_times_g(point2) == doctest::Approx(125.0 / 64.0));
+        REQUIRE(p_times_g(point3) == doctest::Approx(26.0 / 4));
+
+        REQUIRE(p_by_g(point1) == doctest::Approx(1.0));
+        REQUIRE(p_by_g(point2) == doctest::Approx(5.0 / 4));
+        REQUIRE(p_by_g(point3) == doctest::Approx(8.0 / 13));
     }
 }
 
