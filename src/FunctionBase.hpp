@@ -7,6 +7,8 @@
 #ifndef FUNCTIONBASE_HPP
 #define FUNCTIONBASE_HPP
 
+#include "utils.hpp"
+
 namespace Galerkin
 {
 
