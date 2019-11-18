@@ -33,7 +33,7 @@ public:
     template <auto I>
     constexpr auto partial() const noexcept
     {
-        return partial<I>(m_f1) + partial<I>(m_f2);
+        return Galerkin::partial<I>(m_f1) + Galerkin::partial<I>(m_f2);
     }
 
     template <class... T>
@@ -56,7 +56,7 @@ public:
     template <auto I>
     constexpr auto partial() const noexcept
     {
-        return partial<I>(m_f1) * m_f2 + m_f1 * partial<I>(m_f2);
+        return Galerkin::partial<I>(m_f1) * m_f2 + m_f1 * Galerkin::partial<I>(m_f2);
     }
 
     template <class... T>
@@ -79,7 +79,8 @@ public:
     template <auto I>
     constexpr auto partial() const noexcept
     {
-        return (m_f2 * partial<I>(m_f1) - m_f1 * partial<I>(m_f2)) / (m_f2 * m_f2);
+        return (m_f2 * Galerkin::partial<I>(m_f1) -
+            m_f1 * Galerkin::partial<I>(m_f2)) / (m_f2 * m_f2);
     }
 
     template <class... T>
