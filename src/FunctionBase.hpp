@@ -70,6 +70,28 @@ private:
     F2 m_f2;
 };
 
+template <class F>
+class FunctionNegation : public FunctionBase<FunctionNegation<F>>
+{
+public:
+    constexpr FunctionNegation(const F& f) : m_f(f) {}
+
+    template <auto I>
+    constexpr auto partial() const noexcept
+    {
+        return FunctionNegation(Galerkin::partial<I>(m_f));
+    }
+
+    template <class... T>
+    constexpr auto operator()(const T&... x) const noexcept
+    {
+        return -m_f(x...);
+    }
+
+private:
+    F m_f;
+};
+
 template <class F1, class F2>
 class FunctionQuotient : public FunctionBase<FunctionQuotient<F1, F2>>
 {
@@ -102,6 +124,12 @@ public:
     constexpr auto operator+(const Other &other) const noexcept
     {
         return FunctionSum(static_cast<const Derived&>(*this), other);
+    }
+
+    template <class Other>
+    constexpr auto operator-(const Other &other) const noexcept
+    {
+        return *this + FunctionNegation(other);
     }
 
     template <class Other>
