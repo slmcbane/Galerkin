@@ -287,6 +287,53 @@ TEST_CASE("[Galerkin::Polynomials] Test partial derivative computation")
         REQUIRE((p / g).partial<0>()(std::tuple(1.5)) == doctest::Approx(1.0));
         REQUIRE((p / g).partial<0>()(std::tuple(3.0)) == doctest::Approx(1.0));
     }
+
+    SUBCASE("Multivariable case")
+    {
+        // p(x, y) = x^2 + 2xy - 2y + 1
+        constexpr auto p = Polynomial<int, Metanomials::Powers<2, 0>,
+                                      Metanomials::Powers<1, 1>,
+                                      Metanomials::Powers<0, 1>,
+                                      Metanomials::Powers<0, 0>
+                                     >(1, 2, -2, 1);
+        // g(x, y) = y^2 - x + 2
+        constexpr auto g = Polynomial<int, Metanomials::Powers<0, 2>,
+                                      Metanomials::Powers<1, 0>, Metanomials::Powers<0, 0>
+                                     >(1, -1, 2);
+
+        // Evaluation points
+        constexpr auto point1 = std::tuple(Rationals::rational<1, 2>, -Rationals::rational<1, 2>);
+        constexpr auto point2 = std::array<double, 2>{3.0 / 4, 0 };
+        constexpr auto point3 = std::tuple(1.0, -3.0 / 2);
+
+        REQUIRE(partial<0>(p) == Polynomial<int, Metanomials::Powers<1, 0>,
+                                            Metanomials::Powers<0, 1>>(2, 2));
+        REQUIRE(partial<1>(p) == Polynomial<int, Metanomials::Powers<1, 0>,
+                                            Metanomials::Powers<0, 0>>(2, -2));
+        REQUIRE(partial<0>(g) == Polynomial<int, Metanomials::Powers<0, 0>>(-1));
+        REQUIRE(partial<1>(g) == Polynomial<int, Metanomials::Powers<0, 1>>(2));
+
+        REQUIRE(partial<0>(p + g)(point1) == -1);
+        REQUIRE(partial<1>(p + g)(point1) == -2);
+        REQUIRE(partial<0>(p + g)(point2) == doctest::Approx(0.5));
+        REQUIRE(partial<1>(p + g)(point2) == doctest::Approx(-0.5));
+        REQUIRE(partial<0>(p + g)(point3) == doctest::Approx(-2.0));
+        REQUIRE(partial<1>(p + g)(point3) == doctest::Approx(-3.0));
+
+        REQUIRE(partial<0>(p * g)(point1) == doctest::Approx(-7.0 / 4));
+        REQUIRE(partial<1>(p * g)(point1) == doctest::Approx(-7.0 / 2));
+        REQUIRE(partial<0>(p * g)(point2) == doctest::Approx(5.0 / 16));
+        REQUIRE(partial<1>(p * g)(point2) == doctest::Approx(-5.0 / 8));
+        REQUIRE(partial<0>(p * g)(point3) == doctest::Approx(-21.0 / 4));
+        REQUIRE(partial<1>(p * g)(point3) == doctest::Approx(-6.0));
+
+        REQUIRE(partial<0>(p / g)(point1) == doctest::Approx(4.0 / 7));
+        REQUIRE(partial<1>(p / g)(point1) == doctest::Approx(0.0));
+        REQUIRE(partial<0>(p / g)(point2) == doctest::Approx(11.0 / 5));
+        REQUIRE(partial<1>(p / g)(point2) == doctest::Approx(-0.4));
+        REQUIRE(partial<0>(p / g)(point3) == doctest::Approx(-20.0 / 169));
+        REQUIRE(partial<1>(p / g)(point3) == doctest::Approx(96.0 / 169));
+    }
 }
 
 #endif // DOCTEST_LIBRARY_INCLUDED
