@@ -127,14 +127,14 @@ private:
                 constexpr auto power = get<J()>(power_list);
                 if constexpr (Metanomials::get_power<I>(power) != 0)
                 {
-                    return intgr_constant<static_cast<int>(J())>;
+                    return std::integral_constant<int, static_cast<int>(J())>();
                 }
                 else
                 {
                     return intgr_constant<-1>;
                 }
             },
-            std::tuple(),
+            std::tuple<>(),
             [](auto tup, auto power)
             {
                 return power_combiner(power)(tup);
