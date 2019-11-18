@@ -272,6 +272,20 @@ TEST_CASE("[Galerkin::Polynomials] Test partial derivative computation")
         REQUIRE(p.partial<0>().partial<0>() == Polynomial<int, Metanomials::Powers<0>>(2));
         REQUIRE(g.partial<0>() == Polynomial<int, Metanomials::Powers<0>>(1));
         REQUIRE(g.partial<0>().partial<0>() == Polynomial<int>());
+
+        constexpr std::array x{3.0};
+
+        REQUIRE((p + g).partial<0>()(std::tuple(1)) == 3);
+        REQUIRE((p + g).partial<0>()(std::tuple(1.5)) == doctest::Approx(4.0));
+        REQUIRE((p + g).partial<0>()(x) == 7);
+
+        REQUIRE((p * g).partial<0>()(std::tuple(1)) == 4);
+        REQUIRE((p * g).partial<0>()(std::tuple(1.5)) == doctest::Approx(3 * 2.25 + 3 - 1));
+        REQUIRE((p * g).partial<0>()(x) == doctest::Approx(32.0));
+
+        REQUIRE((p / g).partial<0>()(std::tuple(1.0)) == doctest::Approx(1.0));
+        REQUIRE((p / g).partial<0>()(std::tuple(1.5)) == doctest::Approx(1.0));
+        REQUIRE((p / g).partial<0>()(std::tuple(3.0)) == doctest::Approx(1.0));
     }
 }
 
