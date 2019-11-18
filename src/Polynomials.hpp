@@ -29,7 +29,7 @@ public:
         static_assert(sizeof...(Args) == sizeof...(Powers));
     }
 
-    constexpr Polynomial() : m_coeffs { 0 } {}
+    constexpr Polynomial() : m_coeffs {} {}
 
     constexpr const T& operator[](int i) const noexcept { return m_coeffs[i]; }
     T& operator[](int i) noexcept { return m_coeffs[i]; }
@@ -47,8 +47,100 @@ public:
 
     constexpr auto& coeffs() const noexcept { return m_coeffs; }
 
+    template <auto I>
+    constexpr auto partial() const noexcept
+    {
+        if constexpr (sizeof...(Powers) == 0)
+        {
+            return Polynomial<T>();
+        }
+        else
+        {
+            static_assert(I < Metanomials::nvars(get<0>(typeconst_list<Powers...>())),
+                          "Index for partial derivative out of bounds");
+            constexpr auto inds = select_partial_terms<I>();
+            constexpr auto N = std::tuple_size_v<decltype(inds)>;
+            std::array<T, N> coeffs {};
+            constexpr auto power_list = typeconst_list<Powers...>();
+
+            auto new_powers = static_reduce<0, N, 1>(
+                [&](auto J)
+                {
+                    constexpr auto index = std::get<J()>(inds);
+                    auto power = get<index>(power_list);
+                    coeffs[J()] = m_coeffs[index] * Metanomials::get_power<I>(power);
+                    return Metanomials::subtract_one<I>(power);
+                },
+                typeconst_list<>(),
+                [](auto l, auto p) { return l.append(make_list(p)); }
+            );
+
+            return construct_polynomial(coeffs, new_powers);
+        }
+    }
+
 private:
     std::array<T, sizeof...(Powers)> m_coeffs;
+
+    template <class Ty, class... Ps>
+    static constexpr auto construct_polynomial(const std::array<Ty, sizeof...(Ps)> coeffs,
+                                               typeconst_list<Ps...>) noexcept
+    {
+        auto p = Polynomial<Ty, Ps...>();
+        for (unsigned i = 0; i < sizeof...(Ps); ++i)
+        {
+            p[i] = coeffs[i];
+        }
+        return p;
+    }
+
+    template <int v>
+    struct PowerCombiner
+    {
+        template <class Tup>
+        constexpr auto operator()(Tup tup) const noexcept
+        {
+            if constexpr (v != -1)
+            {
+                return std::tuple_cat(tup, std::tuple(v));
+            }
+            else
+            {
+                return tup;
+            }
+        }
+    };
+
+    template <int v>
+    static constexpr auto power_combiner(std::integral_constant<int, v>) noexcept
+    {
+        return PowerCombiner<v>();
+    }
+
+    template <auto I>
+    static constexpr auto select_partial_terms() noexcept
+    {
+        constexpr auto power_list = typeconst_list<Powers...>();
+        return static_reduce<0, sizeof...(Powers), 1>(
+            [=](auto J)
+            {
+                constexpr auto power = get<J()>(power_list);
+                if constexpr (Metanomials::get_power<I>(power) != 0)
+                {
+                    return intgr_constant<static_cast<int>(J())>;
+                }
+                else
+                {
+                    return intgr_constant<-1>;
+                }
+            },
+            std::tuple(),
+            [](auto tup, auto power)
+            {
+                return power_combiner(power)(tup);
+            }
+        );
+    }
 };
 
 template <class T, class... Powers>
@@ -156,6 +248,38 @@ TEST_CASE("[Galerkin::Polynomials] Basic arithmetic and evaluation of polynomial
 }
 
 #endif // DOCTEST_LIBRARY_INCLUDED
+
+/********************************************************************************
+ * End test block.
+ *******************************************************************************/
+
+/********************************************************************************
+ * Test partial derivatives of a polynomial.
+ *******************************************************************************/
+
+#ifdef DOCTEST_LIBRARY_INCLUDED
+
+TEST_CASE("[Galerkin::Polynomials] Test partial derivative computation")
+{
+    SUBCASE("Single variable case")
+    {
+        // p(x) = x^2 - 1
+        constexpr auto p = Polynomial<int, Metanomials::Powers<2>, Metanomials::Powers<0>>(1, -1);
+        // g(x) = x + 1;
+        constexpr auto g = Polynomial<int, Metanomials::Powers<1>, Metanomials::Powers<0>>(1, 1);
+
+        REQUIRE(p.partial<0>() == Polynomial<int, Metanomials::Powers<1>>(2));
+        REQUIRE(p.partial<0>().partial<0>() == Polynomial<int, Metanomials::Powers<0>>(2));
+        REQUIRE(g.partial<0>() == Polynomial<int, Metanomials::Powers<0>>(1));
+        REQUIRE(g.partial<0>().partial<0>() == Polynomial<int>());
+    }
+}
+
+#endif // DOCTEST_LIBRARY_INCLUDED
+
+/********************************************************************************
+ * End test block.
+ *******************************************************************************/
 
 } // namespace Polynomials
 
