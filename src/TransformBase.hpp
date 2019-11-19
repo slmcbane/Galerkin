@@ -46,9 +46,9 @@ public:
     template <auto I, class F>
     constexpr auto partial(const F& f) const noexcept
     {
-        auto first_term = partial<0>(f) * derived().template inv_jacobian<0, I>();
+        auto first_term = Galerkin::partial<0>(f) * derived().template inv_jacobian<0, I>();
         return static_sum<1, N>(
-            [&](auto J) { return partial<J()>(f) * derived().template inv_jacobian<J(), I>(); },
+            [&](auto J) { return Galerkin::partial<J()>(f) * derived().template inv_jacobian<J(), I>(); },
             first_term
         );
     }
@@ -68,7 +68,7 @@ public:
     template <auto I, class F>
     constexpr auto integrate(const F& f) const noexcept
     {
-        return derived().quadrature<I>(f * derived().detJ());
+        return derived().template quadrature<I>(f / derived().detJ());
     }
     
 private:
