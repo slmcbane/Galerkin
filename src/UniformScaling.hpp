@@ -120,7 +120,7 @@ TEST_CASE("[Galerkin::Transforms] Test uniform scaling transformation")
 
 SUBCASE("A one-dimensional uniform scaling transformation with no volume change")
 {
-    auto transform = UniformScaling(1.0, std::array<double, 1>{1.0});
+    constexpr auto transform = UniformScaling(1.0, std::array<double, 1>{1.0});
     REQUIRE(transform.detJ()(0.1) == doctest::Approx(1.0));
     REQUIRE(transform.detJ()(-0.5) == doctest::Approx(1.0));
 
@@ -157,6 +157,66 @@ SUBCASE("A one-dimensional uniform scaling transformation with no volume change"
                 )
             )
         )
+    );
+}
+
+SUBCASE("A one dimensional uniform transformation with volume change")
+{
+    constexpr auto transform = UniformScaling(0.5, std::array<double, 1>{0.25});
+
+    REQUIRE(transform.detJ()(0.1) == doctest::Approx(0.5));
+    REQUIRE(transform.detJ()(-0.5) == doctest::Approx(0.5));
+
+    REQUIRE(std::get<0>(transform(std::array<double, 1>{0.0})) == doctest::Approx(0.25));
+    REQUIRE(std::get<0>(transform(std::array<double, 1>{-1.0})) == doctest::Approx(-0.25));
+    // Call with another argument type.
+    REQUIRE(std::get<0>(transform(std::tuple<int>(1))) == doctest::Approx(0.75));
+
+    // Check jacobian elements.
+    REQUIRE(transform.jacobian<0, 0>()(std::array<double, 1>{0.0}) == 0.5);
+    REQUIRE(transform.inv_jacobian<0, 0>()(std::array<double, 1>{0.2}) == doctest::Approx(2.0));
+
+    // Check partial derivatives of a function.
+    REQUIRE(transform.partial<0>(Metanomials::metanomial(
+        Metanomials::term(Rationals::rational<2>, Metanomials::powers(intgr_constant<2>))
+        ))(std::tuple(0.2)) == doctest::Approx(1.6));
+
+    // Check integration of a function over the interval.
+    REQUIRE(transform.integrate<3>(
+        Metanomials::metanomial(
+            Metanomials::term(Rationals::rational<1>, Metanomials::powers(intgr_constant<3>)),
+            Metanomials::term(Rationals::rational<-1>, Metanomials::powers(intgr_constant<2>))
+        )
+    ) == doctest::Approx(-1.0 / 3));
+
+    // Check integrating the partial derivative.
+    REQUIRE(
+        transform.integrate<2>(
+            transform.partial<0>(Metanomials::metanomial(
+                Metanomials::term(Rationals::rational<1>, Metanomials::powers(intgr_constant<3>))
+            ))) ==
+        doctest::Approx(
+            transform.integrate<2>(
+                Metanomials::metanomial(
+                    Metanomials::term(Rationals::rational<6>, Metanomials::powers(intgr_constant<2>))
+                )
+            )
+        )
+    );
+
+    REQUIRE(
+        transform.integrate<2>(
+            transform.partial<0>(Metanomials::metanomial(
+                Metanomials::term(Rationals::rational<1>, Metanomials::powers(intgr_constant<3>))
+            ))) == doctest::Approx(2.0)
+    );
+
+    REQUIRE(
+        transform.integrate<2>(
+            Metanomials::metanomial(
+                    Metanomials::term(Rationals::rational<3>, Metanomials::powers(intgr_constant<2>))
+                )
+        ) == doctest::Approx(1.0)
     );
 }
 
