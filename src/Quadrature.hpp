@@ -26,12 +26,12 @@ struct Rule
 };
 
 template <class F, class T, auto N>
-constexpr auto integrate(F &&f, Rule<T, N> rule) noexcept
+constexpr auto integrate(const F &f, Rule<T, N> rule) noexcept
 {
     T x = zero<T>;
     for (int i = 0; i < N; ++i)
     {
-        x += std::forward<F>(f)(rule.points[i]) * rule.weights[i];
+        x += f(rule.points[i]) * rule.weights[i];
     }
     return x;
 }
