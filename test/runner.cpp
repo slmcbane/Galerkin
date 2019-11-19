@@ -14,3 +14,4 @@
 #include "../src/MetaLinAlg.hpp"
 #include "../src/Elements.hpp"
 #include "../src/Polynomials.hpp"
+#include "../src/UniformScaling.hpp"

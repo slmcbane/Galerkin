@@ -8,6 +8,9 @@
 #define UNIFORMSCALING_HPP
 
 #include "TransformBase.hpp"
+#include "Quadrature.hpp"
+#include "Rationals.hpp"
+#include "FunctionBase.hpp"
 
 #include <array>
 
@@ -20,18 +23,25 @@ namespace Transforms
 template <class T, auto N>
 class UniformScaling : public TransformBase<N, UniformScaling<T, N>>
 {
+public:
+    constexpr UniformScaling(T scale, const std::array<T, N> &translation) noexcept :
+        m_scaling{scale}, m_trans(translation)
+    {}
+
     /*!
      * @brief Call operator; A is `array-like` (support indexing with []).
      */
     template <class A>
     constexpr auto operator()(const A& xi) const noexcept
     {
-        std::array<T, N> x{};
-        for (auto i = zero<decltype(N)>; i < N; ++i)
-        {
-            x[i] = xi[i] * m_scaling + m_trans[i];
-        }
-        return x;
+        return static_reduce<0, N, 1>(
+            [&](auto I)
+            {
+                return m_scaling * std::get<I()>(xi) + m_trans[I()];
+            },
+            std::tuple<>(),
+            [](auto tup, auto v) { return std::tuple_cat(tup, std::tuple(v)); }
+        );
     }
 
     /*!
@@ -47,6 +57,50 @@ class UniformScaling : public TransformBase<N, UniformScaling<T, N>>
         return Functions::ConstantFunction(dj);
     }
 
+    /*!
+     * @brief Integrate a function over the reference interval.
+     */
+    template <int I, class F>
+    constexpr auto quadrature(const F &f) const noexcept
+    {
+        constexpr auto npoints = (I + 1) / 2 + (I - 1) % 2;
+        if constexpr (npoints <= 0)
+        {
+            return Quadrature::integrate(f, Quadrature::legendre_rule<T, 1>);
+        }
+        else
+        {
+            return Quadrature::integrate(f, Quadrature::legendre_rule<T, npoints>);
+        }
+    }
+
+    template <int I, int J>
+    constexpr auto jacobian() const noexcept
+    {
+        static_assert(I < N && J < N, "Out of bounds index for jacobian");
+        if constexpr(I == J)
+        {
+            return Functions::ConstantFunction(m_scaling);
+        }
+        else
+        {
+            return Functions::ConstantFunction(Rationals::rational<0>);
+        }
+    }
+
+    template <int I, int J>
+    constexpr auto inv_jacobian() const noexcept
+    {
+        static_assert(I < N && J < N, "Out of bounds index for jacobian");
+        if constexpr (I == J)
+        {
+            return Functions::ConstantFunction(1 / m_scaling);
+        }
+        else
+        {
+            return Functions::ConstantFunction(Rationals::rational<0>);
+        }
+    }
 
 private:
     T m_scaling;
@@ -66,22 +120,22 @@ TEST_CASE("[Galerkin::Transforms] Test uniform scaling transformation")
 
 SUBCASE("A one-dimensional uniform scaling transformation with no volume change")
 {
-    auto transform = uniform_transformation(1.0, std::array<double, 1>{1.0});
+    auto transform = UniformScaling(1.0, std::array<double, 1>{1.0});
     REQUIRE(transform.detJ()(0.1) == doctest::Approx(1.0));
     REQUIRE(transform.detJ()(-0.5) == doctest::Approx(1.0));
 
-    REQUIRE(transform(std::array<double, 1>{0.0})[0] == doctest::Approx(1.0));
-    REQUIRE(transform(std::array<double, 1>{-1.0})[0] == doctest::Approx(0.0));
-    REQUIRE(transform(std::array<int, 1>{1})[0] == doctest::Approx(2.0));
+    REQUIRE(std::get<0>(transform(std::array<double, 1>{0.0})) == doctest::Approx(1.0));
+    REQUIRE(std::get<0>(transform(std::array<double, 1>{-1.0})) == doctest::Approx(0.0));
+    REQUIRE(std::get<0>(transform(std::array<int, 1>{1})) == doctest::Approx(2.0));
 
     // Check jacobian elements.
-    REQUIRE(transform.jacobian<0, 0>(std::array<double, 1>{0.0}) == 1.0);
-    REQUIRE(transform.inv_jacobian<0, 0>(std::array<double, 1>{0.2}) == 1.0);
+    REQUIRE(transform.jacobian<0, 0>()(std::array<double, 1>{0.0}) == 1.0);
+    REQUIRE(transform.inv_jacobian<0, 0>()(std::array<double, 1>{0.2}) == 1.0);
 
     // Check partial derivatives of a function.
     REQUIRE(transform.partial<0>(Metanomials::metanomial(
         Metanomials::term(Rationals::rational<2>, Metanomials::powers(intgr_constant<2>))
-        ))(std::array<double, 1>{0.2}) == doctest::Approx(0.8));
+        ))(std::tuple(0.2)) == doctest::Approx(0.8));
 
     // Check integration of a function over the interval.
     REQUIRE(transform.integrate<3>(
