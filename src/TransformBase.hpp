@@ -68,7 +68,7 @@ public:
     template <auto I, class F>
     constexpr auto integrate(const F& f) const noexcept
     {
-        return derived().template quadrature<I>(f / derived().detJ());
+        return derived().template quadrature<I>(f * derived().detJ());
     }
     
 private:
