@@ -8,6 +8,7 @@
 #define FUNCTIONBASE_HPP
 
 #include "utils.hpp"
+#include "Rationals.hpp"
 
 namespace Galerkin
 {
@@ -156,6 +157,48 @@ private:
     FunctionBase() = default;
     friend Derived;
 };
+
+template <class T>
+class ConstantFunction : public FunctionBase<ConstantFunction<T>>
+{
+public:
+    constexpr ConstantFunction(T v) noexcept : m_val(v) {}
+
+    template <class... Args>
+    constexpr auto operator()([[maybe_unused]] const Args&... args) const noexcept
+    {
+        return m_val;
+    }
+
+    template <auto I>
+    constexpr auto partial() const noexcept
+    {
+        return ConstantFunction(Rationals::rational<0>);
+    }
+private:
+    T m_val;
+};
+
+/********************************************************************************
+ * Tests for ConstantFunction
+ *******************************************************************************/
+#ifdef DOCTEST_LIBRARY_INCLUDED
+
+TEST_CASE("[Galerkin::Functions] Test ConstantFunction")
+{
+    constexpr auto fn = ConstantFunction(2.0);
+    REQUIRE(fn() == 2.0);
+    REQUIRE(fn(1, 2, 3) == 2.0);
+    REQUIRE(fn(std::tuple('a', 'b', 'c')) == 2.0);
+
+    REQUIRE(partial<0>(fn)(1) == Rationals::rational<0>);
+    REQUIRE(partial<10>(fn)(std::tuple(0, 0)) == Rationals::rational<0>);
+}
+
+#endif // DOCTEST_LIBRARY_INCLUDED
+/********************************************************************************
+ * End test block.
+ *******************************************************************************/
 
 } // namespace Functions
 
