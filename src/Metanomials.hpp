@@ -47,12 +47,10 @@ constexpr auto raise_arg(Arg x, Powers<v>)
     }
 }
 
-template <class... Args, auto v, auto... vs>
-constexpr auto raise(std::tuple<Args...> args, Powers<v, vs...>)
+template <class Arg, auto v, auto... vs>
+constexpr auto raise(const Arg &args, Powers<v, vs...>)
 {
-    static_assert(sizeof...(Args) == sizeof...(vs)+1);
-    static_assert(sizeof...(Args) > 0);
-    
+    static_assert(std::tuple_size_v<Arg> == sizeof...(vs)+1);    
     auto raised = raise_arg(std::get<0>(args), Powers<v>());
 
     if constexpr (sizeof...(vs) == 0)
@@ -63,39 +61,6 @@ constexpr auto raise(std::tuple<Args...> args, Powers<v, vs...>)
     {
         return raised * raise(tuple_tail(args), Powers<vs...>());
     }
-}
-
-namespace
-{
-
-template <auto N, class T, auto v, auto... vs>
-constexpr auto array_raise_impl(const T& args, Powers<v, vs...>) noexcept
-{
-    auto raised = raise_arg(args[N], Powers<v>());
-    if constexpr (sizeof...(vs) == 0)
-    {
-        return raised;
-    }
-    else
-    {
-        return raised * array_raise_impl<N+1>(args, Powers<vs...>());
-    }
-}
-
-} // namespace
-
-/*!
- * @brief Overload assumes `args` support indexing with brackets
- * 
- * For all argument types that are not std::tuple, this overload is called; if
- * `args` can be indexed with square brackets and has the right number of
- * entries, this function performs the appropriate operation. Not very safe, but
- * I don't know how to write it generically and bounds check.
- */
-template <class T, auto v, auto... vs>
-constexpr auto raise(const T& args, Powers<v, vs...>) noexcept
-{
-    return array_raise_impl<0>(args, Powers<v, vs...>());
 }
 
 template <auto... vs>
