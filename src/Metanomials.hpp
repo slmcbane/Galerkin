@@ -180,8 +180,8 @@ struct Term
     static constexpr auto coeff() noexcept { return R(); }
     static constexpr auto powers() noexcept { return P(); }
 
-    template <class... Args>
-    constexpr auto operator()(std::tuple<Args...> args) const noexcept
+    template <class Args>
+    constexpr auto operator()(const Args &args) const noexcept
     {
         return R() * raise(args, P());
     }
@@ -283,6 +283,24 @@ struct Metanomial : public typeconst_list<Terms...>, public Functions::FunctionB
                     return get<I()>(static_cast<typeconst_list<Terms...>>(*this))(args);
                 },
                 this->head()(args));
+        }
+    }
+
+    template <class T, auto N>
+    constexpr auto operator()(const std::array<T, N>& args) const noexcept
+    {
+        if constexpr (sizeof...(Terms) == 0)
+        {
+            return intgr_constant<0>;
+        }
+        else
+        {
+            return static_sum<1, sizeof...(Terms)>(
+                [=](auto I) {
+                    return get<I()>(static_cast<typeconst_list<Terms...>>(*this))(args);
+                },
+                this->head()(args)
+            );
         }
     }
 
