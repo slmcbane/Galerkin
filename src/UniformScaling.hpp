@@ -253,6 +253,9 @@ SUBCASE("A two-dimensional uniform scaling with volume change")
 
     // Test the integration of the polynomial over the domain.
     REQUIRE(transform.integrate<1>(poly) == doctest::Approx(9.0 / 4));
+    // Test integral of the squared gradient.
+    REQUIRE(transform.integrate<2>(partial0 * partial0 + partial1 * partial1) ==
+        doctest::Approx(2.0 / 3));
 }
 
 } /* TEST_CASE */
