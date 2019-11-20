@@ -165,7 +165,7 @@ SUBCASE("A one dimensional uniform transformation with volume change")
     constexpr auto transform = UniformScaling(0.5, std::array<double, 1>{0.25});
 
     REQUIRE(transform.detJ()(0.1) == doctest::Approx(0.5));
-    REQUIRE(transform.detJ()(-0.5) == doctest::Approx(0.5));
+    REQUIRE(transform.detJ()(std::tuple(-0.5)) == doctest::Approx(0.5));
 
     REQUIRE(std::get<0>(transform(std::array<double, 1>{0.0})) == doctest::Approx(0.25));
     REQUIRE(std::get<0>(transform(std::array<double, 1>{-1.0})) == doctest::Approx(-0.25));
@@ -218,6 +218,38 @@ SUBCASE("A one dimensional uniform transformation with volume change")
                 )
         ) == doctest::Approx(1.0)
     );
+}
+
+SUBCASE("A two-dimensional uniform scaling with volume change")
+{
+    constexpr auto transform = UniformScaling(1.5, std::array<double, 2>{1.5, 1.5});
+
+    REQUIRE(std::get<0>(transform(std::tuple(0.0, 0.0))) == doctest::Approx(1.5));
+    REQUIRE(std::get<1>(transform(std::tuple(0.0, 0.0))) == doctest::Approx(1.5));
+    REQUIRE(std::get<0>(transform(std::array<double, 2>{-2.0 / 3, 0.0})) == doctest::Approx(0.5));
+
+    REQUIRE(transform.detJ()(std::tuple(0.1, Rationals::rational<1, 2>)) == doctest::Approx(2.25));
+    REQUIRE(transform.detJ()(std::array<int, 2>{-1, 1}) == doctest::Approx(2.25));
+
+    REQUIRE(transform.jacobian<0, 0>()(std::array<double, 2>{0, 0}) == 1.5);
+    REQUIRE(transform.jacobian<1, 1>()(std::tuple(Rationals::rational<1, 4>, -1)) == 1.5);
+    REQUIRE(transform.jacobian<0, 1>()(std::tuple(0, 0.2)) == Rationals::rational<0>);
+    REQUIRE(transform.jacobian<1, 0>()(std::tuple(1.0, 0.3)) == Rationals::rational<0>);
+
+    REQUIRE(transform.inv_jacobian<0, 0>()(std::tuple(0.1, 0.1)) == doctest::Approx(2.0 / 3));
+    REQUIRE(transform.inv_jacobian<0, 1>()(std::array<int, 2>{1, -1}) == Rationals::rational<0>);
+    REQUIRE(transform.inv_jacobian<1, 1>()(std::array<double, 2>{0.2, -0.2}) == doctest::Approx(2.0 / 3));
+
+    constexpr auto poly = Polynomials::Polynomial<double, Metanomials::Powers<1, 1>,
+                                Metanomials::Powers<1, 0>, Metanomials::Powers<0, 1>,
+                                Metanomials::Powers<0, 0>>(0.25, -0.25, -0.25, 0.25);
+    constexpr auto partial0 = transform.partial<0>(poly);
+    constexpr auto partial1 = transform.partial<1>(poly);
+
+    REQUIRE(partial0(std::tuple(0.5, -0.5)) == doctest::Approx(-1.0 / 4));
+    REQUIRE(partial0(std::tuple(-0.5, 0.3)) == doctest::Approx(-7.0 / 60));
+    REQUIRE(partial1(std::array<double, 2>{1.0, -0.2}) == doctest::Approx(0.0));
+    REQUIRE(partial1(std::tuple(-Rationals::rational<1, 2>, 0.1)) == doctest::Approx(-1.0 / 4));
 }
 
 } /* TEST_CASE */
