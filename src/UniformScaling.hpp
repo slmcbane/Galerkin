@@ -66,11 +66,11 @@ public:
         constexpr auto npoints = (I + 1) / 2 + (I - 1) % 2;
         if constexpr (npoints <= 0)
         {
-            return Quadrature::integrate(f, Quadrature::legendre_rule<T, 1>);
+            return Quadrature::box_integrate<N>(f, Quadrature::legendre_rule<T, 1>);
         }
         else
         {
-            return Quadrature::integrate(f, Quadrature::legendre_rule<T, npoints>);
+            return Quadrature::box_integrate<N>(f, Quadrature::legendre_rule<T, npoints>);
         }
     }
 
@@ -250,6 +250,9 @@ SUBCASE("A two-dimensional uniform scaling with volume change")
     REQUIRE(partial0(std::tuple(-0.5, 0.3)) == doctest::Approx(-7.0 / 60));
     REQUIRE(partial1(std::array<double, 2>{1.0, -0.2}) == doctest::Approx(0.0));
     REQUIRE(partial1(std::tuple(-Rationals::rational<1, 2>, 0.1)) == doctest::Approx(-1.0 / 4));
+
+    // Test the integration of the polynomial over the domain.
+    REQUIRE(transform.integrate<1>(poly) == doctest::Approx(9.0 / 4));
 }
 
 } /* TEST_CASE */
