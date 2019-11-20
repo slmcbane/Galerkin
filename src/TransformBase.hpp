@@ -75,7 +75,7 @@ private:
     TransformBase() = default;
     friend Derived;
 
-    const auto& derived() const noexcept { return static_cast<const Derived&>(*this); }
+    constexpr const auto& derived() const noexcept { return static_cast<const Derived&>(*this); }
 };
 
 } /* namespace Transforms */

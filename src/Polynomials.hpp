@@ -32,7 +32,7 @@ public:
     constexpr Polynomial() : m_coeffs {} {}
 
     constexpr const T& operator[](int i) const noexcept { return m_coeffs[i]; }
-    T& operator[](int i) noexcept { return m_coeffs[i]; }
+    constexpr T& operator[](int i) noexcept { return m_coeffs[i]; }
 
     template <class X>
     constexpr auto operator()(const X &args) const noexcept
