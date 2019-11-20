@@ -63,12 +63,25 @@ namespace
     {
         return std::tuple(std::get<Ns+1>(t)...);
     }
+
+    template <auto... Ns, class T>
+    constexpr auto tuple_tail_impl(std::index_sequence<Ns...>, const std::array<T, sizeof...(Ns)+1> &a) noexcept
+    {
+        return std::array<T, sizeof...(Ns)>{ std::get<Ns+1>(a)... };
+    }
 }
 
 template <class T, class... Ts>
 constexpr auto tuple_tail(std::tuple<T, Ts...> t) noexcept
 {
     return tuple_tail_impl(std::index_sequence_for<Ts...>(), t);
+}
+
+template <class T, auto N>
+constexpr auto tuple_tail(const std::array<T, N> &a) noexcept
+{
+    static_assert(N > 0, "Can't take tail for 0-element array");
+    return tuple_tail_impl(std::make_index_sequence<N-1>(), a);
 }
 
 /*!
