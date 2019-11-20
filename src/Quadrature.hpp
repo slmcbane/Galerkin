@@ -36,6 +36,30 @@ constexpr auto integrate(const F &f, Rule<T, N> rule) noexcept
     return x;
 }
 
+template <auto Dim, class F, class T, auto N>
+constexpr auto box_integrate(const F &f, Rule<T, N> rule) noexcept
+{
+    static_assert(Dim >= 1);
+    if constexpr (Dim == 1)
+    {
+        return integrate(
+            [&](auto x) { return f(std::tuple(x)); },
+            rule
+        );
+    }
+    else
+    {
+        constexpr auto bind_head = [](const auto &g, auto x)
+        {
+            return [=, &g](auto tail) { return g(std::tuple_cat(std::tuple(x), tail)); };
+        };
+        return integrate(
+            [&](auto x) { return box_integrate<Dim - 1>(bind_head(f, x), rule); },
+            rule
+        );
+    }
+}
+
 template <class T, auto N>
 constexpr auto legendre_weights() noexcept
 {
