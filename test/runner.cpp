@@ -15,3 +15,4 @@
 #include "../src/Elements.hpp"
 #include "../src/Polynomials.hpp"
 #include "../src/UniformScaling.hpp"
+#include "../src/BilinearQuadTransform.hpp"

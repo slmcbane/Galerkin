@@ -3,6 +3,8 @@
 
 #include "utils.hpp"
 
+#include <exception>
+
 namespace Galerkin
 {
 
@@ -77,6 +79,12 @@ private:
 
     constexpr const auto& derived() const noexcept { return static_cast<const Derived&>(*this); }
 };
+
+/// Used as a tag type to indicate that a transform's constructor should check geometric compatibility.
+struct GeometryCheck {};
+
+/// Thrown for failed geometry checks.
+struct GeometryException : public std::exception {};
 
 } /* namespace Transforms */
 
