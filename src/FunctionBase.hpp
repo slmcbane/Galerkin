@@ -135,6 +135,11 @@ public:
         return *this + FunctionNegation(other);
     }
 
+    constexpr auto operator-() const noexcept
+    {
+        return FunctionNegation(static_cast<const Derived&>(*this));
+    }
+
     template <class Other>
     constexpr auto operator*(const Other &other) const noexcept
     {

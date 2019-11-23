@@ -9,6 +9,7 @@
 
 #include "TransformBase.hpp"
 #include "Rationals.hpp"
+#include "Polynomials.hpp"
 
 #include <array>
 #include <tuple>
@@ -94,6 +95,79 @@ public:
                        m_coeffs[7];
         
         return std::array<decltype(x*y), 2>{x, y};
+    }
+
+    constexpr auto detJ() const noexcept
+    {
+        return Polynomials::Polynomial<T, Metanomials::Powers<1, 0>,
+                                          Metanomials::Powers<0, 1>,
+                                          Metanomials::Powers<0, 0>
+                                      >(m_coeffs[1]*m_coeffs[4] - m_coeffs[0]*m_coeffs[5],
+                                        m_coeffs[0]*m_coeffs[6] - m_coeffs[2]*m_coeffs[4],
+                                        m_coeffs[1]*m_coeffs[6] - m_coeffs[2]*m_coeffs[5]);
+    }
+
+    template <int I, int J>
+    constexpr auto jacobian() const noexcept
+    {
+        static_assert(I <= 1 && J <= 1 && I >= 0 && J >= 0);
+        if constexpr (I == 0)
+        {
+            if constexpr (J == 0)
+            {
+                return Polynomials::Polynomial<T, Metanomials::Powers<0, 1>,
+                                                  Metanomials::Powers<0, 0>
+                                              >(m_coeffs[0], m_coeffs[1]);
+            }
+            else
+            {
+                return Polynomials::Polynomial<T, Metanomials::Powers<1, 0>,
+                                                  Metanomials::Powers<0, 0>
+                                              >(m_coeffs[0], m_coeffs[2]);
+            }
+        }
+        else
+        {
+            if constexpr (J == 0)
+            {
+                return Polynomials::Polynomial<T, Metanomials::Powers<0, 1>,
+                                                  Metanomials::Powers<0, 0>
+                                              >(m_coeffs[4], m_coeffs[5]);
+            }
+            else
+            {
+                return Polynomials::Polynomial<T, Metanomials::Powers<1, 0>,
+                                                  Metanomials::Powers<0, 0>
+                                              >(m_coeffs[4], m_coeffs[6]);
+            }
+        }
+    }
+
+    template <int I, int J>
+    constexpr auto inv_jacobian() const noexcept
+    {
+        if constexpr (I == 0)
+        {
+            if constexpr (J == 0)
+            {
+                return jacobian<1, 1>() / detJ();
+            }
+            else
+            {
+                return -jacobian<0, 1>() / detJ();
+            }
+        }
+        else
+        {
+            if constexpr (J == 0)
+            {
+                return -jacobian<1, 0>() / detJ();
+            }
+            else
+            {
+                return jacobian<0, 0>() / detJ();
+            }
+        }
     }
 
 private:
@@ -246,6 +320,29 @@ TEST_CASE("[Galerkin::Transforms] Test that points are mapped correctly under a 
         REQUIRE(std::get<1>(transformed) == doctest::Approx(19.0 / 16));
     }
 }
+
+TEST_CASE("[Galerkin::Transforms] Test Jacobian computations with bilinear transform")
+{
+    constexpr auto transform = bilinear_quad(
+        std::tuple(0, 0), std::tuple(Rationals::rational<1, 4>, 1),
+        std::tuple(2, Rationals::rational<7, 4>), std::tuple(2, 0)
+    );
+
+    constexpr auto detj = transform.detJ();
+
+    REQUIRE(detj(std::tuple(0, 0)) == doctest::Approx(81.0 / 128));
+    REQUIRE(detj(std::tuple(0.5, -0.5)) == doctest::Approx(193.0 / 256));
+
+    REQUIRE(transform.jacobian<0, 0>()(std::tuple(0, 0)) == doctest::Approx(15.0 / 16));
+    REQUIRE(transform.jacobian<0, 1>()(std::tuple(0, 0)) == doctest::Approx(1.0 / 16));
+    REQUIRE(transform.jacobian<1, 0>()(std::tuple(0, 0)) == doctest::Approx(3.0 / 16));
+    REQUIRE(transform.jacobian<1, 1>()(std::tuple(0, 0)) == doctest::Approx(11.0 / 16));
+
+    REQUIRE(transform.inv_jacobian<0, 0>()(std::tuple(0, 0)) == doctest::Approx(88.0 / 81));
+    REQUIRE(transform.inv_jacobian<0, 1>()(std::tuple(0, 0)) == doctest::Approx(-8.0 / 81));
+    REQUIRE(transform.inv_jacobian<1, 0>()(std::tuple(0, 0)) == doctest::Approx(-8.0 / 27));
+    REQUIRE(transform.inv_jacobian<1, 1>()(std::tuple(0, 0)) == doctest::Approx(40.0 / 27));
+} // TEST_CASE
 
 #endif
 
