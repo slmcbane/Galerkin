@@ -10,6 +10,7 @@
 #include "TransformBase.hpp"
 #include "Rationals.hpp"
 #include "Polynomials.hpp"
+#include "Quadrature.hpp"
 
 #include <array>
 #include <tuple>
@@ -170,6 +171,20 @@ public:
         }
     }
 
+    template <int I, class F>
+    constexpr auto quadrature(const F &f) const noexcept
+    {
+        constexpr auto npoints = (I + 1) / 2 + (I - 1) % 2;
+        if constexpr (npoints <= 0)
+        {
+            return Quadrature::box_integrate<2>(f, Quadrature::legendre_rule<T, 1>);
+        }
+        else
+        {
+            return Quadrature::box_integrate<2>(f, Quadrature::legendre_rule<T, npoints>);
+        }
+    }
+
 private:
     std::array<T, 8> m_coeffs;
 
@@ -214,6 +229,8 @@ constexpr auto bilinear_quad(const T1 &p1, const T2 &p2, const T3 &p3, const T4 
  * Test the bilinear quadrilateral transform.
  *******************************************************************************/
 #ifdef DOCTEST_LIBRARY_INCLUDED
+
+#include <cmath>
 
 TEST_CASE("[Galerkin::Transforms] Test transform constructors")
 {
@@ -342,6 +359,35 @@ TEST_CASE("[Galerkin::Transforms] Test Jacobian computations with bilinear trans
     REQUIRE(transform.inv_jacobian<0, 1>()(std::tuple(0, 0)) == doctest::Approx(-8.0 / 81));
     REQUIRE(transform.inv_jacobian<1, 0>()(std::tuple(0, 0)) == doctest::Approx(-8.0 / 27));
     REQUIRE(transform.inv_jacobian<1, 1>()(std::tuple(0, 0)) == doctest::Approx(40.0 / 27));
+} // TEST_CASE
+
+TEST_CASE("[Galerkin::Transforms] Exercise partials and integration for bilinear transform")
+{
+    constexpr auto transform = bilinear_quad(
+        std::tuple(0, 0), std::tuple(1, 1), std::tuple(3, 1), std::tuple(2, 0),
+        GeometryCheck{}
+    );
+
+    constexpr auto f = Polynomials::Polynomial<double, Metanomials::Powers<1, 1>,
+                                                       Metanomials::Powers<1, 0>,
+                                                       Metanomials::Powers<0, 1>,
+                                                       Metanomials::Powers<0, 0>
+                                              >(0.25, -0.25, -0.25, 0.25);
+    
+    REQUIRE(transform.integrate<2>(f) == doctest::Approx(0.5));
+    
+    constexpr auto dx = transform.partial<0>(f);
+    constexpr auto dy = transform.partial<1>(f);
+
+    REQUIRE(transform.integrate<2>(Functions::ConstantFunction(1)) == doctest::Approx(2.0));
+    REQUIRE(transform.integrate<2>(Metanomials::metanomial(
+        Metanomials::term(Rationals::rational<1>, Metanomials::Powers<2, 0>())
+    )) == doctest::Approx(2.0 / 3));
+    REQUIRE(transform.integrate<2>(Metanomials::metanomial(
+        Metanomials::term(Rationals::rational<1>, Metanomials::Powers<2, 2>())
+    )) == doctest::Approx(2.0 / 9));
+
+    REQUIRE(transform.integrate<2>(dx*dx + dy*dy) == doctest::Approx(0.5));
 } // TEST_CASE
 
 #endif
