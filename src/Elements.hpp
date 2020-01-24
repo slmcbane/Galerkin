@@ -120,10 +120,11 @@ constexpr auto powers_up_to(std::integral_constant<decltype(I), I>,
         constexpr auto power_list = static_reduce<0, lst.count(), 1>(
             [=](auto i)
             {
+                constexpr auto index1 = i();
                 return static_reduce<0, tails.count(), 1>(
                     [=](auto j)
                     {
-                        return concatenate_powers(get<i()>(lst), get<j()>(tails));
+                        return concatenate_powers(get<index1>(lst), get<j()>(tails));
                     },
                     typeconst_list<>{},
                     [](auto l1, auto pow) { return l1.append(typeconst_list<decltype(pow)>{}); }

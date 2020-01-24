@@ -127,7 +127,7 @@ private:
                 constexpr auto power = get<J()>(power_list);
                 if constexpr (Metanomials::get_power<I>(power) != 0)
                 {
-                    return std::integral_constant<int, static_cast<int>(J())>();
+                    return J;
                 }
                 else
                 {
