@@ -75,6 +75,12 @@ constexpr auto powers(std::integral_constant<decltype(vs), vs>...)
     return Powers<vs...>();
 }
 
+template <auto... vs>
+constexpr auto powers(typeconst_list<std::integral_constant<decltype(vs), vs>...>) noexcept
+{
+    return Powers<vs...>();
+}
+
 /********************************************************************************
  * Some trivial tests for the is_powers trait.
  *******************************************************************************/

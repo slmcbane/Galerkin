@@ -56,6 +56,7 @@ constexpr bool check_powers() noexcept
 template <class... Ps>
 constexpr auto to_form(typeconst_list<Ps...>) noexcept
 {
+    static_assert(check_powers<Ps...>(), "All arguments to to_form should be 'Powers' objects");
     return ShapeFunctionForm<Ps...>();
 }
 
@@ -73,6 +74,66 @@ constexpr auto make_form(Powers...) noexcept
 {
     static_assert(check_powers<Powers...>(), "All arguments to make_form should be 'Powers' objects");
     return to_form(ShapeFunctionForm<Powers...>().sorted().unique());
+}
+
+namespace
+{
+
+template <auto... Is, auto... Js>
+constexpr auto concatenate_powers(Metanomials::Powers<Is...>, Metanomials::Powers<Js...>) noexcept
+{
+    return Metanomials::Powers<Is..., Js...>{};
+}
+
+} // namespace
+
+/*!
+ * @brief Returns a `ShapeFunctionForm` with combination of powers up to given maxima.
+ * 
+ * This function is a utility to construct the common form for shape functions
+ * that consists of all terms that are at most order N in a given term.
+ * For example, `powers_up_to(intgr_constant<1>, intgr_constant<1>)` gives the
+ * form of a bilinear shape function `f(x, y) = axy + bx + cy + d`.
+ */
+template <auto I, auto... Is>
+constexpr auto powers_up_to(std::integral_constant<decltype(I), I>, 
+                            std::integral_constant<decltype(Is), Is>...) noexcept
+{
+    static_assert(I >= 0);
+    if constexpr (sizeof...(Is) == 0)
+    {
+        constexpr auto lst = static_reduce<0, I+1, 1>
+        (
+            [](auto i) { return i; },
+            typeconst_list<>{},
+            [](auto l, auto i)
+            {
+                return l.append(typeconst_list<Metanomials::Powers<i()>>{});
+            }
+        );
+        return to_form(lst);
+    }
+    else
+    {
+        constexpr auto lst = powers_up_to(intgr_constant<I>);
+        constexpr auto tails = powers_up_to(intgr_constant<Is>...);
+        constexpr auto power_list = static_reduce<0, lst.count(), 1>(
+            [=](auto i)
+            {
+                return static_reduce<0, tails.count(), 1>(
+                    [=](auto j)
+                    {
+                        return concatenate_powers(get<i()>(lst), get<j()>(tails));
+                    },
+                    typeconst_list<>{},
+                    [](auto l1, auto pow) { return l1.append(typeconst_list<decltype(pow)>{}); }
+                );
+            },
+            typeconst_list<>{},
+            [](auto l1, auto l2) { return l1.append(l2); }
+        );
+        return to_form(power_list);
+    }
 }
 
 // Here ends boilerplate for the DSL and begins the actual implementation of
@@ -217,6 +278,12 @@ constexpr auto partial_at(Coords...) noexcept
 
 using namespace Metanomials;
 using namespace Rationals;
+
+TEST_CASE("[Galerkin::Elements] Test powers_up_to")
+{
+    constexpr auto powers = powers_up_to(intgr_constant<1>, intgr_constant<1>);
+    REQUIRE(std::is_same_v<decltype(powers), const ShapeFunctionForm<Powers<0, 0>, Powers<0, 1>, Powers<1, 0>, Powers<1, 1>>>);
+}
 
 TEST_CASE("[Galerkin::Elements] Deriving one-dimensional shape functions")
 {
