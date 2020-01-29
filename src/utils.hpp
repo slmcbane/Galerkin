@@ -299,6 +299,26 @@ struct typeconst_list<T, Types...>
     }
 };
 
+template <auto v>
+constexpr auto intgr_constant = std::integral_constant<decltype(v), v>();
+
+template <class T>
+constexpr bool is_intgr_constant = false;
+
+template <auto v>
+constexpr bool is_intgr_constant<std::integral_constant<decltype(v), v>> = true;
+
+template <class Lower, class Upper, auto N>
+constexpr auto evenly_spaced(Lower, Upper, std::integral_constant<decltype(N), N>) noexcept
+{
+    constexpr auto delta = (Upper{} - Lower{}) / intgr_constant<N>;
+    return static_reduce<0, N+1, 1>(
+        [=](auto I) { return Lower{} + I * delta; },
+        typeconst_list<>{},
+        [](auto lst, auto x) { return lst.append(make_list(x)); }
+    );
+}
+
 /// Get the I-th element (0-based) from the list given.
 template <auto I, class... Types>
 constexpr auto get(typeconst_list<Types...> lst)
@@ -334,15 +354,6 @@ constexpr auto repeatedly(T) noexcept
         return typeconst_list<T>().append(repeatedly<N-1>(T()));
     }
 }
-
-template <auto v>
-constexpr auto intgr_constant = std::integral_constant<decltype(v), v>();
-
-template <class T>
-constexpr bool is_intgr_constant = false;
-
-template <auto v>
-constexpr bool is_intgr_constant<std::integral_constant<decltype(v), v>> = true;
 
 template <auto I, class T>
 constexpr auto partial(const T& x) noexcept
