@@ -237,7 +237,13 @@ constexpr auto operator/(Rational<N1, D1>, Rational<N2, D2>)
 
 /// A `Rational` * an `integral_constant` returns a `Rational`.
 template <auto N, auto D, class I, I v>
-constexpr auto operator*(Rational<N, D>, std::integral_constant<I, v>)
+constexpr auto operator*(Rational<N, D>, std::integral_constant<I, v>) noexcept
+{
+    return rational<N, D> * rational<v>;
+}
+
+template <auto N, auto D, class I, I v>
+constexpr auto operator*(std::integral_constant<I, v>, Rational<N, D>) noexcept
 {
     return rational<N, D> * rational<v>;
 }
