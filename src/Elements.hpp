@@ -16,7 +16,6 @@
 namespace Galerkin
 {
 
-/// Functionality related to individual finite elements.
 namespace Elements
 {
 

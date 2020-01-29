@@ -31,7 +31,7 @@ public:
      * @brief Compute partial derivatives using change of variables rule.
      * 
      * Returns the derivative of a function `g` defined by the relation
-     * `g(x) = f(inverse_transform(x))`; `f` is the argument given to the function.
+     * `g(x) = f(inverse_transform(x))`; `f` is the argument given to `partial`.
      * The template argument is the index of the variable to differentiate with
      * respect to. The returned object is a function that returns the derivative
      * of `g` with respect to `x`, as a function of `xi` where `xi` is the inverse
@@ -39,7 +39,7 @@ public:
      * 
      * For example if `f(x) = x^2`, and the transform is a uniform scaling of the
      * interval (-1, 1) to (-2, 2), then `transform.partial<0>(f)` is equivalent
-     * to a function `f'(x) = x`, since `d(xi)/dx == 1/2`.
+     * to a function `df/dx(x) = x`, since `d(xi)/dx == 1/2`.
      * 
      * Requires that `f` satisfy the interface imposed by `FunctionBase`.
      * 
