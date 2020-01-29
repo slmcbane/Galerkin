@@ -131,6 +131,20 @@ constexpr auto static_reduce(F&& f, T x, COMB&& c)
     }
 }
 
+template <auto BEGIN, auto END, auto STEP, class F>
+constexpr void static_for(F&& f)
+{
+    if constexpr (BEGIN >= END)
+    {
+        return;
+    }
+    else
+    {
+        std::forward<F>(f)(std::integral_constant<decltype(BEGIN), BEGIN>());
+        static_for<BEGIN+STEP, END, STEP>(std::forward<F>(f));
+    }
+}
+
 /*!
  * @brief A simple wrapper around `static_reduce` that performs a summation.
  * 
