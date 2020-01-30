@@ -110,7 +110,6 @@ struct ElementBase
             form(get<0>(Derived::basis), get<0>(Derived::basis)), order));
         if constexpr (is_symmetric<Form>)
         {
-            static_assert(false, "Symmetric specialization not implemented yet");
         }
         else
         {
