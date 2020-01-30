@@ -23,7 +23,7 @@ public:
             .map([](auto N) { return EvaluateAt<decltype(N)>{}; })
     );
 
-    IntervalElement(T a, T b) : m_scaling((b-a) / 2), m_translation((a+b) / 2)
+    constexpr IntervalElement(T a, T b) : m_scaling((b-a) / 2), m_translation((a+b) / 2)
     {}
 
     constexpr auto coordinate_map() const noexcept
@@ -76,13 +76,21 @@ TEST_CASE("[Galerkin::Elements] Test computed mass and stiffness matrices for In
 
 SUBCASE("No symmetric tag")
 {
-    IntervalElement<2, double> elt(0.5, 1.0);
+    constexpr IntervalElement<2, double> elt(0.5, 1.0);
 
-    auto mass_matrix = elt.form_matrix(
+    constexpr auto mass_matrix = elt.form_matrix(
         [](auto f, auto g) { return f * g; }
     );
 
     REQUIRE(mass_matrix(0, 0) == doctest::Approx(1.0 / 15));
+    REQUIRE(mass_matrix(0, 1) == doctest::Approx(1.0 / 30));
+    REQUIRE(mass_matrix(0, 2) == doctest::Approx(-1.0 / 60));
+    REQUIRE(mass_matrix(1, 1) == doctest::Approx(4.0 / 15));
+    REQUIRE(mass_matrix(1, 2) == doctest::Approx(1.0 / 30));
+    REQUIRE(mass_matrix(2, 2) == doctest::Approx(1.0 / 15));
+    REQUIRE(mass_matrix(0, 1) == doctest::Approx(mass_matrix(1, 0)));
+    REQUIRE(mass_matrix(0, 2) == doctest::Approx(mass_matrix(2, 0)));
+    REQUIRE(mass_matrix(1, 2) == doctest::Approx(mass_matrix(2, 1)));
 } // SUBCASE
 
 } // TEST_CASE
