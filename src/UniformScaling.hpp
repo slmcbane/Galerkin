@@ -34,14 +34,15 @@ public:
     template <class A>
     constexpr auto operator()(const A& xi) const noexcept
     {
-        return static_reduce<0, N, 1>(
+        using result_t = decltype(m_scaling * std::get<0>(xi) + m_trans[0]);
+        std::array<result_t, N> transformed {};
+        static_for<0, N, 1>(
             [&](auto I)
             {
-                return m_scaling * std::get<I()>(xi) + m_trans[I()];
-            },
-            std::tuple<>(),
-            [](auto tup, auto v) { return std::tuple_cat(tup, std::tuple(v)); }
+                transformed[I()] = m_scaling * std::get<I()>(xi) + m_trans[I()];
+            }
         );
+        return transformed;
     }
 
     /*!
@@ -125,6 +126,7 @@ SUBCASE("A one-dimensional uniform scaling transformation with no volume change"
     REQUIRE(transform.detJ()(-0.5) == doctest::Approx(1.0));
 
     REQUIRE(std::get<0>(transform(std::array<double, 1>{0.0})) == doctest::Approx(1.0));
+    REQUIRE(transform(std::array<double, 1>{0.0})[0] == doctest::Approx(1.0));
     REQUIRE(std::get<0>(transform(std::array<double, 1>{-1.0})) == doctest::Approx(0.0));
     REQUIRE(std::get<0>(transform(std::array<int, 1>{1})) == doctest::Approx(2.0));
 
