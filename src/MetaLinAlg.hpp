@@ -117,7 +117,7 @@ constexpr auto make_matrix(Row, Rows...) noexcept
     else
     {
         constexpr auto tail = make_matrix(Rows()...);
-        static_assert(Row().count() == tail.head().count(),
+        static_assert(Row::count == tail.head().count,
                       "All matrix rows must have the same length");
         return head.append(tail);
     }
@@ -183,7 +183,7 @@ TEST_CASE("[Galerkin::MetaLinAlg] Construct a MetaMatrix, access elements and ro
 template <auto I, class Row, class... Rows>
 constexpr auto replace_row(Matrix<Rows...> mat, Row) noexcept
 {
-    static_assert(I >= 0 && I < mat.count());
+    static_assert(I >= 0 && I < mat.count);
     if constexpr (I == 0)
     {
         return Matrix<Row>().append(mat.tail());
@@ -551,8 +551,8 @@ constexpr auto apply_swaps(typeconst_list<std::integral_constant<int, swaps>...>
 template <auto start, class Arow, class Soln, class Entry>
 constexpr auto subtract_previous(Arow, Soln, Entry)
 {
-    static_assert(start <= Soln::count());
-    if constexpr (start == Soln::count())
+    static_assert(start <= Soln::count);
+    if constexpr (start == Soln::count)
     {
         return Entry();
     }
@@ -567,14 +567,14 @@ constexpr auto subtract_previous(Arow, Soln, Entry)
 template <auto start, auto sz, class Arow, class Soln, class Entry>
 constexpr auto subtract_latter(Arow, Soln, Entry)
 {
-    static_assert(start <= Arow::count());
-    if constexpr (start == Arow::count())
+    static_assert(start <= Arow::count);
+    if constexpr (start == Arow::count)
     {
         return Entry();
     }
     else
     {
-        constexpr auto increment = get<start - sz + Soln::count()>(Soln()) * get<start>(Arow());
+        constexpr auto increment = get<start - sz + Soln::count>(Soln()) * get<start>(Arow());
         return subtract_latter<start+1, sz>(Arow(), Soln(), Entry() - increment);
     }
 }
@@ -589,7 +589,7 @@ constexpr auto backsub_fwd_impl(Matrix<Rows...>, Rhs, Soln)
     }
     else if constexpr (M == 0)
     {
-        static_assert(Soln::count() == 0);
+        static_assert(Soln::count == 0);
         return backsub_fwd_impl<1>(Matrix<Rows...>(), Rhs(), make_row(get<0>(Rhs())));
     }
     else
@@ -629,7 +629,7 @@ constexpr auto backsub_back_impl(Matrix<Rows...>, Rhs, Soln)
     }
     else if constexpr (M == sizeof...(Rows)-1)
     {
-        static_assert(Soln::count() == 0);
+        static_assert(Soln::count == 0);
         return backsub_back_impl<M-1>(
             Matrix<Rows...>(), Rhs(),
             make_row(get<M>(Rhs()) / get_elt<M, M>(Matrix<Rows...>()))
@@ -674,7 +674,7 @@ template <int... swaps, class Row>
 constexpr auto apply_permutation(typeconst_list<std::integral_constant<int, swaps>...>,
                                  Row)
 {
-    static_assert(sizeof...(swaps) == Row().count() - 1);
+    static_assert(sizeof...(swaps) == Row::count - 1);
     return apply_swaps<0>(
         typeconst_list<std::integral_constant<int, swaps>...>(), Row());
 }

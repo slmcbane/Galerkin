@@ -116,11 +116,11 @@ constexpr auto powers_up_to(std::integral_constant<decltype(I), I>,
     {
         constexpr auto lst = powers_up_to(intgr_constant<I>);
         constexpr auto tails = powers_up_to(intgr_constant<Is>...);
-        constexpr auto power_list = static_reduce<0, lst.count(), 1>(
+        constexpr auto power_list = static_reduce<0, lst.count, 1>(
             [=](auto i)
             {
                 constexpr auto index1 = i();
-                return static_reduce<0, tails.count(), 1>(
+                return static_reduce<0, tails.count, 1>(
                     [=](auto j)
                     {
                         return concatenate_powers(get<index1>(lst), get<j()>(tails));

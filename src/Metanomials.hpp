@@ -265,7 +265,7 @@ template <class... Terms>
 struct Metanomial : public typeconst_list<Terms...>, public Functions::FunctionBase<Metanomial<Terms...>>
 {
     static_assert(sizeof...(Terms) == 0 ||
-                      typeconst_list<Terms...>().map(map_nvars).unique().count() == 1,
+                      typeconst_list<Terms...>().map(map_nvars).unique().count == 1,
                   "The number of variables in all terms of a Metanomial must be equal");
 
     template <class... Types>
@@ -396,7 +396,7 @@ constexpr auto metanomial(Terms...)
 template <class... Terms>
 constexpr auto nterms(Metanomial<Terms...>)
 {
-    return Metanomial<Terms...>::count();
+    return Metanomial<Terms...>::count;
 }
 
 /********************************************************************************
@@ -620,7 +620,7 @@ constexpr auto operator*(Rationals::Rational<N, D>, Term<R, P>)
 template <class... Terms1, class... Terms2>
 constexpr auto operator*(Metanomial<Terms1...> mult1, Metanomial<Terms2...> mult2)
 {
-    return static_sum<0, mult2.count()>(
+    return static_sum<0, mult2.count>(
         [=](auto I) { return get_term<I()>(mult2) * mult1; },
         metanomial());
 }

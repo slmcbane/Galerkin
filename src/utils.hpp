@@ -211,7 +211,7 @@ struct typeconst_list<>
     }
 
     /// Retrieve the number of items in the list.
-    static constexpr auto count() { return 0UL; }
+    static constexpr auto count = 0UL;
 
     /// Base specialization of `lst.map`; a no-op for the empty specialization.
     template <class F>
@@ -288,7 +288,7 @@ struct typeconst_list<T, Types...>
     static constexpr auto tail() { return typeconst_list<Types...>(); }
 
     /// Get the number of elements in the list.
-    static constexpr auto count() { return 1 + sizeof...(Types); }
+    static constexpr auto count = 1 + sizeof...(Types);
 
     /// Return a list containing the types returned by applying `f` elementwise
     /// to default-constructed instances of `Types...`.
@@ -323,7 +323,7 @@ constexpr auto evenly_spaced(Lower, Upper, std::integral_constant<decltype(N), N
 template <auto I, class... Types>
 constexpr auto get(typeconst_list<Types...> lst)
 {
-    static_assert(I >= 0 && I < lst.count(), "Out of bounds access to list");
+    static_assert(I >= 0 && I < lst.count, "Out of bounds access to list");
     if constexpr (I == 0)
     {
         return lst.head();
