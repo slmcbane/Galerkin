@@ -67,7 +67,7 @@ struct ElementBase
     template <auto I, class F>
     constexpr auto partial(const F &f) const
     {
-        return derived().transform().template partial<I>(f);
+        return derived().coordinate_map().template partial<I>(f);
     }
 
     /*!
@@ -82,7 +82,13 @@ struct ElementBase
     constexpr auto integrate(const F &f, 
                              IntegrationOrder<Order> order = IntegrationOrder<Order>{}) const noexcept
     {
-        return derived().transform().template integrate<order.order>(f);
+        return derived().coordinate_map().template integrate<order.order>(f);
+    }
+
+    template <class T, class... Ts>
+    constexpr auto transform(T x, Ts... xs)
+    {
+        return derived().coordinate_map()(x, xs...);
     }
 
     /*!
@@ -113,17 +119,17 @@ struct ElementBase
         }
         else
         {
-            std::array<eltype, Derived::basis_size * Derived::basis_size> mat_storage {};
-            static_for<0, Derived::basis_size, 1>(
+            std::array<eltype, Derived::basis.count * Derived::basis.count> mat_storage {};
+            static_for<0, Derived::basis.count, 1>(
                 [&](auto i)
                 {
                     // Written this way triggers an internal compiler error, instead of
                     // an (incorrect) error about constexpr
                     constexpr auto index1 = i();
-                    static_for<0, Derived::basis_size, 1>(
+                    static_for<0, Derived::basis.count, 1>(
                         [&](auto j)
                         {
-                            mat_storage[index1*Derived::basis_size + j()] =
+                            mat_storage[index1 * Derived::basis.count + j()] =
                                 integrate(
                                     form(get<index1>(Derived::basis), get<j()>(Derived::basis)),
                                     order
@@ -135,7 +141,7 @@ struct ElementBase
 
             return [=](auto i, auto j)
             {
-                return mat_storage[i * Derived::basis_size + j];
+                return mat_storage[i * Derived::basis.count + j];
             };
         }
     }

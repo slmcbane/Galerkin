@@ -3,6 +3,7 @@
 
 #include "ElementBase.hpp"
 #include "Elements.hpp"
+#include "UniformScaling.hpp"
 
 namespace Galerkin
 {
@@ -24,6 +25,11 @@ public:
 
     IntervalElement(T a, T b) : m_scaling((b-a) / 2), m_translation((a+b) / 2)
     {}
+
+    constexpr auto coordinate_map() const noexcept
+    {
+        return Transforms::UniformScaling(m_scaling, std::array<T, 1>{m_translation});
+    }
 };
 
 } // namespace Elements
@@ -47,6 +53,38 @@ TEST_CASE("[Galerkin::Elements] Check IntervalElement basis functions")
         Metanomials::metanomial(Metanomials::term(Rationals::rational<-1, 2>,
             Metanomials::Powers<1>{}), Metanomials::term(Rationals::rational<1, 2>,
             Metanomials::Powers<0>{})));
+
+    IntervalElement<2, double> elt2(0.0, 1.0);
+
+    REQUIRE(get<1>(elt2.basis) ==
+        Metanomials::metanomial(
+            Metanomials::term(Rationals::rational<-1>, Metanomials::Powers<2>{}),
+            Metanomials::term(Rationals::rational<1>, Metanomials::Powers<0>{})
+        ));
+} // TEST_CASE
+
+TEST_CASE("[Galerkin::Elements] Check mapping of points through IntervalElement")
+{
+    IntervalElement<1, double> elt(0.5, 1.0);
+
+    REQUIRE(elt.transform(std::tuple(0.0))[0] == doctest::Approx(0.75));
+    REQUIRE(elt.transform(std::array<float, 1>{0.5})[0] == doctest::Approx(0.875));
+} // TEST_CASE
+
+TEST_CASE("[Galerkin::Elements] Test computed mass and stiffness matrices for IntervalElement")
+{
+
+SUBCASE("No symmetric tag")
+{
+    IntervalElement<2, double> elt(0.5, 1.0);
+
+    auto mass_matrix = elt.form_matrix(
+        [](auto f, auto g) { return f * g; }
+    );
+
+    REQUIRE(mass_matrix(0, 0) == doctest::Approx(1.0 / 15));
+} // SUBCASE
+
 } // TEST_CASE
 
 #endif // DOCTEST_LIBRARY_INCLUDED

@@ -16,3 +16,4 @@
 #include "../src/Polynomials.hpp"
 #include "../src/UniformScaling.hpp"
 #include "../src/BilinearQuadTransform.hpp"
+#include "../src/Interval.hpp"
