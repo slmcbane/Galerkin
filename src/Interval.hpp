@@ -83,17 +83,35 @@ struct SymmetricMassForm
     }
 };
 
+template <class Element>
+struct SymmetricStiffnessForm
+{
+    const Element &el;
+
+    constexpr SymmetricStiffnessForm(const Element &e) : el(e) {}
+
+    template <class F, class G>
+    constexpr auto operator()(const F &f, const G &g) const noexcept
+    {
+        return el.template partial<0>(f) * el.template partial<0>(g);
+    }
+};
+
 } // namespace IntervalTestNamespace
 
 template<>
 struct IsSymmetric<IntervalTestNamespace::SymmetricMassForm> : public std::true_type
 {};
 
+template <class Element>
+struct IsSymmetric<IntervalTestNamespace::SymmetricStiffnessForm<Element>> : public std::true_type
+{};
+
 TEST_CASE("[Galerkin::Elements] Test computed mass and stiffness matrices for IntervalElement")
 {
     constexpr IntervalElement<2, double> elt(0.5, 1.0);
 
-SUBCASE("No symmetric tag")
+SUBCASE("Mass matrix, no symmetric tag")
 {
     constexpr auto mass_matrix = elt.form_matrix(
         [](auto f, auto g) { return f * g; }
@@ -110,7 +128,7 @@ SUBCASE("No symmetric tag")
     REQUIRE(mass_matrix(1, 2) == doctest::Approx(mass_matrix(2, 1)));
 } // SUBCASE
 
-SUBCASE("With symmetric tag")
+SUBCASE("Mass matrix, with symmetric tag")
 {
     constexpr auto mass_matrix = elt.form_matrix(
         IntervalTestNamespace::SymmetricMassForm{}
@@ -125,6 +143,21 @@ SUBCASE("With symmetric tag")
     REQUIRE(mass_matrix(0, 1) == mass_matrix(1, 0));
     REQUIRE(mass_matrix(0, 2) == mass_matrix(2, 0));
     REQUIRE(mass_matrix(1, 2) == mass_matrix(2, 1));
+} // SUBCASE
+
+SUBCASE("Stiffness matrix")
+{
+    constexpr auto stiffness_matrix = elt.form_matrix(
+        IntervalTestNamespace::SymmetricStiffnessForm(elt),
+        IntegrationOrder<2>{}
+    );
+
+    REQUIRE(stiffness_matrix(0, 0) == doctest::Approx(14.0 / 3));
+    REQUIRE(stiffness_matrix(0, 1) == doctest::Approx(-16.0 / 3));
+    REQUIRE(stiffness_matrix(0, 2) == doctest::Approx(2.0 / 3));
+    REQUIRE(stiffness_matrix(1, 1) == doctest::Approx(32.0 / 3));
+    REQUIRE(stiffness_matrix(1, 2) == doctest::Approx(-16.0 / 3));
+    REQUIRE(stiffness_matrix(2, 2) == doctest::Approx(14.0 / 3));
 } // SUBCASE
 
 } // TEST_CASE
