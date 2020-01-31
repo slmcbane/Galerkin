@@ -71,13 +71,30 @@ TEST_CASE("[Galerkin::Elements] Check mapping of points through IntervalElement"
     REQUIRE(elt.transform(std::array<float, 1>{0.5})[0] == doctest::Approx(0.875));
 } // TEST_CASE
 
-TEST_CASE("[Galerkin::Elements] Test computed mass and stiffness matrices for IntervalElement")
+namespace IntervalTestNamespace
 {
 
-SUBCASE("No symmetric tag")
+struct SymmetricMassForm
+{
+    template <class F, class G>
+    constexpr auto operator()(const F &f, const G &g) const noexcept
+    {
+        return f * g;
+    }
+};
+
+} // namespace IntervalTestNamespace
+
+template<>
+struct IsSymmetric<IntervalTestNamespace::SymmetricMassForm> : public std::true_type
+{};
+
+TEST_CASE("[Galerkin::Elements] Test computed mass and stiffness matrices for IntervalElement")
 {
     constexpr IntervalElement<2, double> elt(0.5, 1.0);
 
+SUBCASE("No symmetric tag")
+{
     constexpr auto mass_matrix = elt.form_matrix(
         [](auto f, auto g) { return f * g; }
     );
@@ -91,6 +108,23 @@ SUBCASE("No symmetric tag")
     REQUIRE(mass_matrix(0, 1) == doctest::Approx(mass_matrix(1, 0)));
     REQUIRE(mass_matrix(0, 2) == doctest::Approx(mass_matrix(2, 0)));
     REQUIRE(mass_matrix(1, 2) == doctest::Approx(mass_matrix(2, 1)));
+} // SUBCASE
+
+SUBCASE("With symmetric tag")
+{
+    constexpr auto mass_matrix = elt.form_matrix(
+        IntervalTestNamespace::SymmetricMassForm{}
+    );
+
+    REQUIRE(mass_matrix(0, 0) == doctest::Approx(1.0 / 15));
+    REQUIRE(mass_matrix(0, 1) == doctest::Approx(1.0 / 30));
+    REQUIRE(mass_matrix(0, 2) == doctest::Approx(-1.0 / 60));
+    REQUIRE(mass_matrix(1, 1) == doctest::Approx(4.0 / 15));
+    REQUIRE(mass_matrix(1, 2) == doctest::Approx(1.0 / 30));
+    REQUIRE(mass_matrix(2, 2) == doctest::Approx(1.0 / 15));
+    REQUIRE(mass_matrix(0, 1) == mass_matrix(1, 0));
+    REQUIRE(mass_matrix(0, 2) == mass_matrix(2, 0));
+    REQUIRE(mass_matrix(1, 2) == mass_matrix(2, 1));
 } // SUBCASE
 
 } // TEST_CASE
