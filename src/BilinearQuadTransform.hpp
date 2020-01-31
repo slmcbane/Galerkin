@@ -41,12 +41,12 @@ constexpr bool check_quad_geometry(const T1 &p1, const T2 &p2, const T3 &p3,
 {
     constexpr auto triangle_det = [](const auto &p1, const auto &p2, const auto &p3)
     {
-        const auto x1 = std::get<0>(p1);
-        const auto x2 = std::get<0>(p2);
-        const auto x3 = std::get<0>(p3);
-        const auto y1 = std::get<1>(p1);
-        const auto y2 = std::get<1>(p2);
-        const auto y3 = std::get<1>(p3);
+        const auto x1 = get<0>(p1);
+        const auto x2 = get<0>(p2);
+        const auto x3 = get<0>(p3);
+        const auto y1 = get<1>(p1);
+        const auto y2 = get<1>(p2);
+        const auto y3 = get<1>(p3);
 
         return (x1 - x2) * (y3 - y2) - (y1 - y2) * (x3 - x2);
     };
@@ -84,7 +84,7 @@ public:
      *
      * The arguments are vertices in the order in which they are connected. May
      * be clockwise or counter-clockwise; negative determinant of the transform
-     * is OK. The types of the points must support `std::get` to access
+     * is OK. The types of the points must support `get` to access
      * elements, e.g. `std::tuple<double, double>` or `std::array<double, 2>`
      * but not `std::vector`.
      */
@@ -117,8 +117,8 @@ public:
     template <class Arg>
     constexpr auto operator()(const Arg &pt) const noexcept
     {
-        const auto xi = std::get<0>(pt);
-        const auto eta = std::get<1>(pt);
+        const auto xi = get<0>(pt);
+        const auto eta = get<1>(pt);
         const auto x = m_coeffs[0] * xi * eta + m_coeffs[1] * xi + m_coeffs[2] * eta +
                        m_coeffs[3];
         const auto y = m_coeffs[4] * xi * eta + m_coeffs[5] * xi + m_coeffs[6] * eta +
@@ -221,24 +221,24 @@ private:
     constexpr void compute_coefficients(const Ps&... ps) noexcept
     {
         static_assert(sizeof...(Ps) == 4);
-        const auto xs = std::tuple(std::get<0>(ps)...);
-        const auto ys = std::tuple(std::get<1>(ps)...);
+        const auto xs = std::tuple(get<0>(ps)...);
+        const auto ys = std::tuple(get<1>(ps)...);
         m_coeffs[0] = Rationals::rational<1, 4> * 
-            (std::get<0>(xs) - std::get<1>(xs) + std::get<2>(xs) - std::get<3>(xs));
+            (get<0>(xs) - get<1>(xs) + get<2>(xs) - get<3>(xs));
         m_coeffs[1] = Rationals::rational<1, 4> *
-            (-std::get<0>(xs) - std::get<1>(xs) + std::get<2>(xs) + std::get<3>(xs));
+            (-get<0>(xs) - get<1>(xs) + get<2>(xs) + get<3>(xs));
         m_coeffs[2] = Rationals::rational<1, 4> *
-            (-std::get<0>(xs) + std::get<1>(xs) + std::get<2>(xs) - std::get<3>(xs));
+            (-get<0>(xs) + get<1>(xs) + get<2>(xs) - get<3>(xs));
         m_coeffs[3] = Rationals::rational<1, 4> *
-            (std::get<0>(xs) + std::get<1>(xs) + std::get<2>(xs) + std::get<3>(xs));
+            (get<0>(xs) + get<1>(xs) + get<2>(xs) + get<3>(xs));
         m_coeffs[4] = Rationals::rational<1, 4> *
-            (std::get<0>(ys) - std::get<1>(ys) + std::get<2>(ys) - std::get<3>(ys));
+            (get<0>(ys) - get<1>(ys) + get<2>(ys) - get<3>(ys));
         m_coeffs[5] = Rationals::rational<1, 4> *
-            (-std::get<0>(ys) - std::get<1>(ys) + std::get<2>(ys) + std::get<3>(ys));
+            (-get<0>(ys) - get<1>(ys) + get<2>(ys) + get<3>(ys));
         m_coeffs[6] = Rationals::rational<1, 4> *
-            (-std::get<0>(ys) + std::get<1>(ys) + std::get<2>(ys) - std::get<3>(ys));
+            (-get<0>(ys) + get<1>(ys) + get<2>(ys) - get<3>(ys));
         m_coeffs[7] = Rationals::rational<1, 4> *
-            (std::get<0>(ys) + std::get<1>(ys) + std::get<2>(ys) + std::get<3>(ys));
+            (get<0>(ys) + get<1>(ys) + get<2>(ys) + get<3>(ys));
     }
 };
 
@@ -315,20 +315,20 @@ TEST_CASE("[Galerkin::Transforms] Test that points are mapped correctly under a 
         );
 
         auto transformed = transform(std::tuple(0, 0));
-        REQUIRE(std::get<0>(transformed) == doctest::Approx(0.5));
-        REQUIRE(std::get<1>(transformed) == doctest::Approx(0.5));
+        REQUIRE(get<0>(transformed) == doctest::Approx(0.5));
+        REQUIRE(get<1>(transformed) == doctest::Approx(0.5));
 
         transformed = transform(std::tuple(-0.5, 1));
-        REQUIRE(std::get<0>(transformed) == doctest::Approx(0.25));
-        REQUIRE(std::get<1>(transformed) == doctest::Approx(1.0));
+        REQUIRE(get<0>(transformed) == doctest::Approx(0.25));
+        REQUIRE(get<1>(transformed) == doctest::Approx(1.0));
 
         transformed = transform(std::array<double, 2>{0.75, -0.75});
-        REQUIRE(std::get<0>(transformed) == doctest::Approx(0.875));
-        REQUIRE(std::get<1>(transformed) == doctest::Approx(0.125));
+        REQUIRE(get<0>(transformed) == doctest::Approx(0.875));
+        REQUIRE(get<1>(transformed) == doctest::Approx(0.125));
 
         transformed = transform(std::tuple(Rationals::rational<3, 4>, -Rationals::rational<3, 4>));
-        REQUIRE(std::get<0>(transformed) == doctest::Approx(0.875));
-        REQUIRE(std::get<1>(transformed) == doctest::Approx(0.125));
+        REQUIRE(get<0>(transformed) == doctest::Approx(0.875));
+        REQUIRE(get<1>(transformed) == doctest::Approx(0.125));
     }
 
     SUBCASE("The same domain but with node numbering reversed")
@@ -338,16 +338,16 @@ TEST_CASE("[Galerkin::Transforms] Test that points are mapped correctly under a 
         );
 
         auto transformed = transform(std::tuple(0, 0));
-        REQUIRE(std::get<0>(transformed) == doctest::Approx(0.5));
-        REQUIRE(std::get<1>(transformed) == doctest::Approx(0.5));
+        REQUIRE(get<0>(transformed) == doctest::Approx(0.5));
+        REQUIRE(get<1>(transformed) == doctest::Approx(0.5));
 
         transformed = transform(std::tuple(-0.5, 1));
-        REQUIRE(std::get<0>(transformed) == doctest::Approx(1.0));
-        REQUIRE(std::get<1>(transformed) == doctest::Approx(0.25));
+        REQUIRE(get<0>(transformed) == doctest::Approx(1.0));
+        REQUIRE(get<1>(transformed) == doctest::Approx(0.25));
 
         transformed = transform(std::tuple(Rationals::rational<3, 4>, -Rationals::rational<3, 4>));
-        REQUIRE(std::get<0>(transformed) == doctest::Approx(0.125));
-        REQUIRE(std::get<1>(transformed) == doctest::Approx(0.875));
+        REQUIRE(get<0>(transformed) == doctest::Approx(0.125));
+        REQUIRE(get<1>(transformed) == doctest::Approx(0.875));
     }
 
     SUBCASE("A more general transformation")
@@ -358,12 +358,12 @@ TEST_CASE("[Galerkin::Transforms] Test that points are mapped correctly under a 
         );
 
         auto transformed = transform(std::tuple(0, 0));
-        REQUIRE(std::get<0>(transformed) == doctest::Approx(17.0 / 16));
-        REQUIRE(std::get<1>(transformed) == doctest::Approx(11.0 / 16));
+        REQUIRE(get<0>(transformed) == doctest::Approx(17.0 / 16));
+        REQUIRE(get<1>(transformed) == doctest::Approx(11.0 / 16));
 
         transformed = transform(std::array<double, 2>{-0.5, 1.0});
-        REQUIRE(std::get<0>(transformed) == doctest::Approx(11.0 / 16));
-        REQUIRE(std::get<1>(transformed) == doctest::Approx(19.0 / 16));
+        REQUIRE(get<0>(transformed) == doctest::Approx(11.0 / 16));
+        REQUIRE(get<1>(transformed) == doctest::Approx(19.0 / 16));
     }
 }
 

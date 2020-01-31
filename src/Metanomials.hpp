@@ -51,7 +51,7 @@ template <class Arg, auto v, auto... vs>
 constexpr auto raise(const Arg &args, Powers<v, vs...>)
 {
     static_assert(std::tuple_size_v<Arg> == sizeof...(vs)+1);    
-    auto raised = raise_arg(std::get<0>(args), Powers<v>());
+    auto raised = raise_arg(get<0>(args), Powers<v>());
 
     if constexpr (sizeof...(vs) == 0)
     {
@@ -67,7 +67,7 @@ template <auto... vs>
 constexpr auto nvars(Powers<vs...>) { return sizeof...(vs); }
 
 template <auto I, auto... vs>
-constexpr auto get_power(Powers<vs...>) { return std::get<I>(std::tuple(vs...)); }
+constexpr auto get_power(Powers<vs...>) { return get<I>(std::tuple(vs...)); }
 
 template <auto... vs>
 constexpr auto powers(std::integral_constant<decltype(vs), vs>...)

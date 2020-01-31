@@ -34,12 +34,12 @@ public:
     template <class A>
     constexpr auto operator()(const A& xi) const noexcept
     {
-        using result_t = decltype(m_scaling * std::get<0>(xi) + m_trans[0]);
+        using result_t = decltype(m_scaling * get<0>(xi) + m_trans[0]);
         std::array<result_t, N> transformed {};
         static_for<0, N, 1>(
             [&](auto I)
             {
-                transformed[I()] = m_scaling * std::get<I()>(xi) + m_trans[I()];
+                transformed[I()] = m_scaling * get<I()>(xi) + m_trans[I()];
             }
         );
         return transformed;
@@ -125,10 +125,10 @@ SUBCASE("A one-dimensional uniform scaling transformation with no volume change"
     REQUIRE(transform.detJ()(0.1) == doctest::Approx(1.0));
     REQUIRE(transform.detJ()(-0.5) == doctest::Approx(1.0));
 
-    REQUIRE(std::get<0>(transform(std::array<double, 1>{0.0})) == doctest::Approx(1.0));
+    REQUIRE(get<0>(transform(std::array<double, 1>{0.0})) == doctest::Approx(1.0));
     REQUIRE(transform(std::array<double, 1>{0.0})[0] == doctest::Approx(1.0));
-    REQUIRE(std::get<0>(transform(std::array<double, 1>{-1.0})) == doctest::Approx(0.0));
-    REQUIRE(std::get<0>(transform(std::array<int, 1>{1})) == doctest::Approx(2.0));
+    REQUIRE(get<0>(transform(std::array<double, 1>{-1.0})) == doctest::Approx(0.0));
+    REQUIRE(get<0>(transform(std::array<int, 1>{1})) == doctest::Approx(2.0));
 
     // Check jacobian elements.
     REQUIRE(transform.jacobian<0, 0>()(std::array<double, 1>{0.0}) == 1.0);
@@ -169,10 +169,10 @@ SUBCASE("A one dimensional uniform transformation with volume change")
     REQUIRE(transform.detJ()(0.1) == doctest::Approx(0.5));
     REQUIRE(transform.detJ()(std::tuple(-0.5)) == doctest::Approx(0.5));
 
-    REQUIRE(std::get<0>(transform(std::array<double, 1>{0.0})) == doctest::Approx(0.25));
-    REQUIRE(std::get<0>(transform(std::array<double, 1>{-1.0})) == doctest::Approx(-0.25));
+    REQUIRE(get<0>(transform(std::array<double, 1>{0.0})) == doctest::Approx(0.25));
+    REQUIRE(get<0>(transform(std::array<double, 1>{-1.0})) == doctest::Approx(-0.25));
     // Call with another argument type.
-    REQUIRE(std::get<0>(transform(std::tuple<int>(1))) == doctest::Approx(0.75));
+    REQUIRE(get<0>(transform(std::tuple<int>(1))) == doctest::Approx(0.75));
 
     // Check jacobian elements.
     REQUIRE(transform.jacobian<0, 0>()(std::array<double, 1>{0.0}) == 0.5);
@@ -226,9 +226,9 @@ SUBCASE("A two-dimensional uniform scaling with volume change")
 {
     constexpr auto transform = UniformScaling(1.5, std::array<double, 2>{1.5, 1.5});
 
-    REQUIRE(std::get<0>(transform(std::tuple(0.0, 0.0))) == doctest::Approx(1.5));
-    REQUIRE(std::get<1>(transform(std::tuple(0.0, 0.0))) == doctest::Approx(1.5));
-    REQUIRE(std::get<0>(transform(std::array<double, 2>{-2.0 / 3, 0.0})) == doctest::Approx(0.5));
+    REQUIRE(get<0>(transform(std::tuple(0.0, 0.0))) == doctest::Approx(1.5));
+    REQUIRE(get<1>(transform(std::tuple(0.0, 0.0))) == doctest::Approx(1.5));
+    REQUIRE(get<0>(transform(std::array<double, 2>{-2.0 / 3, 0.0})) == doctest::Approx(0.5));
 
     REQUIRE(transform.detJ()(std::tuple(0.1, Rationals::rational<1, 2>)) == doctest::Approx(2.25));
     REQUIRE(transform.detJ()(std::array<int, 2>{-1, 1}) == doctest::Approx(2.25));

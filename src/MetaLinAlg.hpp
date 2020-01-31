@@ -701,8 +701,8 @@ template <class... Rows, class Row>
 constexpr auto linear_solve(Matrix<Rows...>, Row)
 {
     constexpr auto factorization = factorize(Matrix<Rows...>());
-    constexpr auto LU = std::get<0>(factorization);
-    constexpr auto P = std::get<1>(factorization);
+    constexpr auto LU = get<0>(factorization);
+    constexpr auto P = get<1>(factorization);
 
     constexpr auto rhs = apply_permutation(P, Row());
     return backsub(LU, rhs);

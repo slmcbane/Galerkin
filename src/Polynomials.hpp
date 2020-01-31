@@ -66,7 +66,7 @@ public:
             auto new_powers = static_reduce<0, N, 1>(
                 [&](auto J)
                 {
-                    constexpr auto index = std::get<J()>(inds);
+                    constexpr auto index = get<J()>(inds);
                     auto power = get<index>(power_list);
                     coeffs[J()] = m_coeffs[index] * Metanomials::get_power<I>(power);
                     return Metanomials::subtract_one<I>(power);
