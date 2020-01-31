@@ -257,12 +257,18 @@ private:
     }
 };
 
+/*!
+ * @brief Construct a `BilinearQuadTransform<double>` from points
+ */
 template <class T1, class T2, class T3, class T4>
 constexpr auto bilinear_quad(const T1 &p1, const T2 &p2, const T3 &p3, const T4 &p4) noexcept
 {
     return BilinearQuadTransform<double>(p1, p2, p3, p4);
 }
 
+/*!
+ * @brief Construct a `BilinearQuadTransform<double>` from points, w/ geometry check.
+ */
 template <class T1, class T2, class T3, class T4>
 constexpr auto bilinear_quad(const T1 &p1, const T2 &p2, const T3 &p3, const T4 &p4, GeometryCheck)
 {
