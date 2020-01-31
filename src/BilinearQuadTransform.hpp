@@ -7,6 +7,11 @@
 #ifndef BILINEARQUADTRANSFORM_HPP
 #define BILINEARQUADTRANSFORM_HPP
 
+/*!
+ * @file BilinearQuadTransform.hpp
+ * @brief Implementation of a bilinear transformation of reference square.
+ */
+
 #include "TransformBase.hpp"
 #include "Rationals.hpp"
 #include "Polynomials.hpp"
@@ -58,10 +63,31 @@ constexpr bool check_quad_geometry(const T1 &p1, const T2 &p2, const T3 &p3,
 
 } // namespace
 
+/*!
+ * @brief Bilinear mapping from reference square to quadrilaterals.
+ *
+ * Given four points defining the vertices of a quadrilateral, construct a
+ * mapping from the reference square `[-1, 1] x [-1, 1]` to the quadrilateral
+ * with the associated required functionality for `TransformBase`. There is an
+ * option to construct the transform with a geometry check that ensures the
+ * defined quadrilateral is valid, i.e. sides do not intersect and there are not
+ * degenerate vertices.
+ *
+ * @see Galerkin::Transforms::TransformBase
+ */
 template <class T>
 class BilinearQuadTransform : public TransformBase<2, BilinearQuadTransform<T>>
 {
 public:
+    /*!
+     * @brief Construct the transform with no geometry check from four vertices
+     *
+     * The arguments are vertices in the order in which they are connected. May
+     * be clockwise or counter-clockwise; negative determinant of the transform
+     * is OK. The types of the points must support `std::get` to access
+     * elements, e.g. `std::tuple<double, double>` or `std::array<double, 2>`
+     * but not `std::vector`.
+     */
     template <class T1, class T2, class T3, class T4>
     constexpr BilinearQuadTransform(const T1 &p1, const T2 &p2, const T3 &p3,
                                     const T4 &p4) noexcept : m_coeffs{0}
@@ -69,6 +95,9 @@ public:
         compute_coefficients(p1, p2, p3, p4);
     }
 
+    /*!
+     * @brief Construct the transform from points, with geometry check.
+     */
     template <class T1, class T2, class T3, class T4>
     constexpr BilinearQuadTransform(const T1 &p1, const T2 &p2, const T3 &p3,
                                     const T4 &p4, GeometryCheck) : m_coeffs {0}
