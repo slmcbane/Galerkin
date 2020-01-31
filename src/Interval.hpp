@@ -1,5 +1,16 @@
+/*
+ * Copyright (c) 2019, The University of Texas at Austin & Sean McBane
+ * This file is part of the Galerkin library; Galerkin is copyright under the
+ * terms of the MIT license. Please see the top-level COPYRIGHT file for details.
+ */
+
 #ifndef INTERVAL_HPP
 #define INTERVAL_HPP
+
+/*!
+ * @file Interval.hpp
+ * @brief Definition of 1-dimensional interval element class
+ */
 
 #include "ElementBase.hpp"
 #include "Elements.hpp"
@@ -11,6 +22,20 @@ namespace Galerkin
 namespace Elements
 {
 
+/*!
+ * @brief Implements a one-dimensional interval element
+ *
+ * This element type has for basis functions polynomials of degree `Degree`,
+ * with the degrees of freedom the values at the endpoints and equally spaced
+ * points in between. Given endpoints of the interval, the instantiated element
+ * is constructed as a uniform translation and scaling from the reference interval
+ * [-1, 1].
+ *
+ * The default integration order is 2 * Degree, to integrate exactly elements
+ * of a mass matrix.
+ *
+ * @see Galerkin::Elements::ElementBase
+ */
 template <int Degree, class T>
 class IntervalElement : public ElementBase<IntervalElement<Degree, T>>
 {
@@ -40,10 +65,14 @@ struct DefaultIntegrationOrder<Elements::IntervalElement<Degree, T>>
     constexpr static int order = 2 * Degree;
 };
 
-namespace Elements
-{
+/********************************************************************************
+ * Begin test block.
+ *******************************************************************************/
 
 #ifdef DOCTEST_LIBRARY_INCLUDED
+
+namespace Elements
+{
 
 TEST_CASE("[Galerkin::Elements] Check IntervalElement basis functions")
 {
@@ -162,9 +191,13 @@ SUBCASE("Stiffness matrix")
 
 } // TEST_CASE
 
+} // namespace Elements
+
 #endif // DOCTEST_LIBRARY_INCLUDED
 
-} // namespace Elements
+/********************************************************************************
+ * End test block
+ *******************************************************************************/
 
 } /* namespace Galerkin */
 
