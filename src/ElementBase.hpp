@@ -49,10 +49,60 @@ namespace Elements
 
 /// Specialize for your `Form` type if it is symmetric in its arguments.
 template <class T>
-struct IsSymmetric { static constexpr bool value = false; };
+struct IsSymmetric : public std::false_type
+{};
 
 template <class T>
 constexpr bool is_symmetric = IsSymmetric<T>::value;
+
+template <class T, size_t N>
+struct BasicSymmetricMatrix
+{
+    constexpr BasicSymmetricMatrix() noexcept : m_storage{} {}
+
+    constexpr T &operator()(int i, int j) noexcept
+    {
+        return m_storage[index(i, j)];
+    }
+
+    constexpr const T &operator()(int i, int j) const noexcept
+    {
+        return m_storage[index(i, j)];
+    }
+private:
+    std::array<T, (N*(N+1))/2> m_storage;
+
+    constexpr static size_t index(int i, int j) noexcept
+    {
+        if (i > j)
+        {
+            return index(j, i);
+        }
+        else
+        {
+            auto offset = ((2 * N - i + 1) * i) / 2;
+            return offset + j - i;
+        }
+    }
+};
+
+template <class T, size_t M, size_t N>
+struct BasicMatrix
+{
+    constexpr BasicMatrix() noexcept : m_storage{} {}
+
+    constexpr T &operator()(int i, int j) noexcept
+    {
+        return m_storage[i * N + j];
+    }
+
+    constexpr const T &operator()(int i, int j) const noexcept
+    {
+        return m_storage[i * N + j];
+    }
+private:
+    std::array<T, M*N> m_storage;
+};
 
 /*!
  * @brief CRTP base class for elements.
@@ -116,10 +166,31 @@ struct ElementBase
             form(get<0>(Derived::basis), get<0>(Derived::basis)), order));
         if constexpr (is_symmetric<Form>)
         {
+            constexpr auto N = Derived::basis.count;
+            BasicSymmetricMatrix<eltype, N> mat;
+
+            static_for<0, Derived::basis.count, 1>(
+                [&](auto i)
+                {
+                    // See comment below in else clause
+                    constexpr auto index1 = i();
+                    static_for<index1, Derived::basis.count, 1>(
+                        [&](auto j)
+                        {
+                            mat(index1, j()) = integrate(
+                                form(get<index1>(Derived::basis), get<j()>(Derived::basis)),
+                                order
+                            );
+                        }
+                    );
+                }
+            );
+
+            return mat;
         }
         else
         {
-            std::array<eltype, Derived::basis.count * Derived::basis.count> mat_storage {};
+            BasicMatrix<eltype, Derived::basis.count, Derived::basis.count> mat;
             static_for<0, Derived::basis.count, 1>(
                 [&](auto i)
                 {
@@ -129,20 +200,16 @@ struct ElementBase
                     static_for<0, Derived::basis.count, 1>(
                         [&](auto j)
                         {
-                            mat_storage[index1 * Derived::basis.count + j()] =
-                                integrate(
-                                    form(get<index1>(Derived::basis), get<j()>(Derived::basis)),
-                                    order
-                                );
+                            mat(index1, j()) = integrate(
+                                form(get<index1>(Derived::basis), get<j()>(Derived::basis)),
+                                order
+                            );
                         }
                     );
                 }
             );
 
-            return [=](auto i, auto j)
-            {
-                return mat_storage[i * Derived::basis.count + j];
-            };
+            return mat;
         }
     }
 private:
