@@ -84,9 +84,24 @@ public:
      *
      * The arguments are vertices in the order in which they are connected. May
      * be clockwise or counter-clockwise; negative determinant of the transform
-     * is OK. The types of the points must support `get` to access
-     * elements, e.g. `std::tuple<double, double>` or `std::array<double, 2>`
-     * but not `std::vector`.
+     * is OK.
+     * 
+     * The types of the points must support `get` to access
+     * elements, via ADL. For example, `std::tuple` and `std::array` work out of
+     * the box but not `std::vector`. You might define a type that works like so:
+     * 
+     *     struct Point
+     *     {
+     *         double x;
+     *         double y;
+     *     };
+     * 
+     *     template <auto I>
+     *     constexpr double get(Point pt) noexcept
+     *     {
+     *         static_assert(I == 0 || I == 1);
+     *         return I == 0 ? pt.x : pt.y;
+     *     }
      */
     template <class T1, class T2, class T3, class T4>
     constexpr BilinearQuadTransform(const T1 &p1, const T2 &p2, const T3 &p3,
