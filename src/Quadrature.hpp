@@ -17,18 +17,17 @@ namespace Galerkin
 namespace Quadrature
 {
 
-template <class T, auto N>
+template <class Point, class Weight, auto N>
 struct Rule
 {
-    const std::array<T, N> points;
-    const std::array<T, N> weights;
-    const std::array<T, 2> interval;
+    const std::array<Point, N> points;
+    const std::array<Weight, N> weights;
 };
 
-template <class F, class T, auto N>
-constexpr auto integrate(const F &f, Rule<T, N> rule) noexcept
+template <class F, class P, class W, auto N>
+constexpr auto integrate(const F &f, const Rule<P, W, N> &rule) noexcept
 {
-    T x = zero<T>;
+    auto x = zero<decltype(f(rule.points[0]) * rule.weights[0])>;
     for (int i = 0; i < N; ++i)
     {
         x += f(rule.points[i]) * rule.weights[i];
@@ -36,8 +35,8 @@ constexpr auto integrate(const F &f, Rule<T, N> rule) noexcept
     return x;
 }
 
-template <auto Dim, class F, class T, auto N>
-constexpr auto box_integrate(const F &f, Rule<T, N> rule) noexcept
+template <auto Dim, class F, class P, class W, auto N>
+constexpr auto box_integrate(const F &f, const Rule<P, W, N> &rule) noexcept
 {
     static_assert(Dim >= 1);
     if constexpr (Dim == 1)
@@ -103,9 +102,9 @@ TEST_CASE("Test compute points for Gauss-Legendre quadrature")
  *******************************************************************************/
 
 template <class T, auto N>
-constexpr Rule<T, N> legendre_rule = Rule<T, N> { Legendre::roots<T, N>,
-                                                  legendre_weights<T, N>(),
-                                                  std::array<T, 2>{-one<T>, one<T>} };
+constexpr Rule<T, T, N> legendre_rule = Rule<T, T, N> { Legendre::roots<T, N>,
+                                                        legendre_weights<T, N>(),
+                                                      };
 
 /********************************************************************************
  * Test that an integral is computed accurately.
@@ -155,6 +154,98 @@ TEST_CASE("Test that integrals are computed exactly")
 }
 
 #endif /* DOCTEST_LIBRARY_INCLUDED */
+
+/********************************************************************************
+ * End test block
+ *******************************************************************************/
+
+template <class T, auto N>
+constexpr auto compute_triangle_rule() noexcept
+{
+    std::array<T, N*N> weights {};
+    std::array<std::tuple<T, T>, N*N> points {};
+    constexpr auto rule = legendre_rule<T, N>;
+    for (int i = 0; i < N; ++i)
+    {
+        const T eta = rule.points[i];
+        for (int j = 0; j < N; ++j)
+        {
+            const T xi = rule.points[j];
+            weights[i*N+j] = rule.weights[i] * rule.weights[j] * (2 - xi - eta) / 4;
+            get<0>(points[i*N+j]) = (-xi*eta + 3*xi - eta - 1) / 4;
+            get<1>(points[i*N+j]) = (-xi*eta - xi + 3*eta - 1) / 4;
+        }
+    }
+    return Rule<std::tuple<T, T>, T, N*N>{points, weights};
+}
+
+/*!
+ * @brief Quadrature rule for reference triangle
+ * 
+ * This rule is derived by mapping the reference square `[-1, 1] x [-1, 1]` to
+ * a reference triangle defined by the vertices `(-1, -1), (-1, 1), (1, -1)`.
+ * This isn't the optimal way to construct a quadrature rule, but it was easy to
+ * implement using existing functionality. The rule given by
+ * `triangle_rule<T, N>` is exact for polynomials of total degree <= `2N - 2`;
+ * for the box quadrature only the degree of the polynomial matters and the
+ * degree must be <= `2N - 1`.
+ */
+template <class T, auto N>
+constexpr Rule<std::tuple<T, T>, T, N*N> triangle_rule = compute_triangle_rule<T, N>();
+
+/********************************************************************************
+ * Test integration using a triangle rule.
+ *******************************************************************************/
+
+#ifdef DOCTEST_LIBRARY_INCLUDED
+
+TEST_CASE("[Galerkin::Quadrature] Test integration using triangular rule")
+{
+
+SUBCASE("Test integration of order 0 polynomial with 1 point and 2 points")
+{
+    constexpr auto f = []([[maybe_unused]] auto t) { return 1.0; };
+
+    REQUIRE(integrate(f, triangle_rule<double, 1>) == doctest::Approx(2.0));
+    REQUIRE(integrate(f, triangle_rule<double, 2>) == doctest::Approx(2.0));
+} // SUBCASE
+
+SUBCASE("Test integration of order 1 polynomial with 2 points and 3 points")
+{
+    constexpr auto f = [](auto t) { return 2*get<0>(t) - get<1>(t); };
+
+    REQUIRE(integrate(f, triangle_rule<double, 2>) == doctest::Approx(-2.0 / 3));
+    REQUIRE(integrate(f, triangle_rule<double, 3>) == doctest::Approx(-2.0 / 3));
+} // SUBCASE
+
+SUBCASE("Test integration of order 2 polynomial with 2 points and 3 points")
+{
+    constexpr auto f = [](auto t) { return get<0>(t) * get<0>(t); };
+
+    REQUIRE(integrate(f, triangle_rule<double, 2>) == doctest::Approx(2.0 / 3));
+    REQUIRE(integrate(f, triangle_rule<double, 3>) == doctest::Approx(2.0 / 3));
+} // SUBCASE
+
+SUBCASE("Test integration of order 3 polynomial")
+{
+    constexpr auto f = [](auto t) { return get<0>(t)*get<0>(t)*get<0>(t) * 
+                                           get<1>(t)*get<1>(t)*get<1>(t) -
+                                           get<0>(t)*get<0>(t); };
+
+    REQUIRE(integrate(f, triangle_rule<double, 4>) == doctest::Approx(-2.0 / 3));
+
+    constexpr auto g = [](auto t) { return get<0>(t)*get<0>(t)*get<0>(t); };
+
+    REQUIRE(integrate(g, triangle_rule<double, 3>) == doctest::Approx(-0.4));
+} // SUBCASE
+
+} // TEST_CASE
+
+#endif // DOCTEST_LIBRARY_INCLUDED
+
+/********************************************************************************
+ * End test block
+ *******************************************************************************/
 
 } /* namespace Quadrature */
 
