@@ -7,6 +7,11 @@
 #ifndef ELEMENTS_HPP
 #define ELEMENTS_HPP
 
+/*!
+ * @file Elements.hpp
+ * @brief Basic functionality related to defining element types.
+ */
+
 #include "MetaLinAlg.hpp"
 #include "Metanomials.hpp"
 #include "utils.hpp"
@@ -52,6 +57,15 @@ constexpr bool check_powers() noexcept
     }
 }
 
+} // namespace
+
+/*!
+ * @brief Convert a `typeconst_list` to a `ShapeFunctionForm`
+ *
+ * This function checks that all of the types `Ps...` are instantiations of
+ * `Metanomials::Powers`, then returns a `ShapeFunctionForm` with the same
+ * powers.
+ */
 template <class... Ps>
 constexpr auto to_form(typeconst_list<Ps...>) noexcept
 {
@@ -59,10 +73,8 @@ constexpr auto to_form(typeconst_list<Ps...>) noexcept
     return ShapeFunctionForm<Ps...>();
 }
 
-} // namespace
-
 /*!
- * @brief Construct a `ShapeFunctionForm` from variadic list of `Powers` objects
+ * @brief Construct a `ShapeFunctionForm` from variadic list of `Metanomials::Powers` objects
  * 
  * The initialized form has duplicate `Powers` objects merged into one and terms
  * sorted in ascending order. Arguments are checked to make sure that they are
@@ -75,16 +87,18 @@ constexpr auto make_form(Powers...) noexcept
     return to_form(ShapeFunctionForm<Powers...>().sorted().unique());
 }
 
-namespace
-{
-
+/*!
+ * @brief Combine two `Powers` objects
+ *
+ * This is the analogue of `std::tuple_cat` or `typeconst_list::append`.
+ * Combine the powers in two `Powers` objects into one `Powers` objects;
+ * e.g. `concatenate_powers(Powers<1>{}, Powers<1>{}) == Powers<1, 1>{}`.
+ */
 template <auto... Is, auto... Js>
 constexpr auto concatenate_powers(Metanomials::Powers<Is...>, Metanomials::Powers<Js...>) noexcept
 {
     return Metanomials::Powers<Is..., Js...>{};
 }
-
-} // namespace
 
 /*!
  * @brief Returns a `ShapeFunctionForm` with combination of powers up to given maxima.
@@ -168,8 +182,11 @@ constexpr auto multiply_coeffs(typeconst_list<Coeffs...>, ShapeFunctionForm<Powe
  * a `ShapeFunctionForm` specifying the powers of the metanomial form, and the
  * second is a `typeconst_list` of constraints. These take the form of a function
  * object accepting a `Powers` object (see `Metanomials.hpp` for interface) and
- * returning a number as a `Rational`. Functors for the most common cases are
+ * returning a number as a `Rationals::Rational`. Functors for the most common cases are
  * provided - see `evaluate_at` and `partial_at`.
+ *
+ * @see evaluate_at
+ * @see partial_at
  */
 template <class... Powers, class... Constraints>
 constexpr auto derive_shape_functions(ShapeFunctionForm<Powers...>, typeconst_list<Constraints...>) noexcept
@@ -188,6 +205,20 @@ constexpr auto derive_shape_functions(ShapeFunctionForm<Powers...>, typeconst_li
         [](auto L, auto x) { return L.append(make_list(x)); });
 }
 
+/*!
+ * @brief A constraint functor for use in `derive_shape_functions`.
+ *
+ * An instance of this class, when a member of the list of constraints given to
+ * `derive_shape_functions`, indicates that one of the degrees of freedom
+ * constraining the system is the value of a function at the point
+ * `(Ns...)` in R^n (where `n == sizeof...(Ns)`). There are no data members;
+ * the point at which to evaluate must be specified using either
+ * a `Rationals::Rational` or `std::integral_constant`. Construct an instance
+ * of this functor using the helper function `evaluate_at`.
+ *
+ * @see derive_shape_functions
+ * @see evaluate_at
+ */
 template <class... Ns>
 struct EvaluateAt
 {
@@ -218,6 +249,15 @@ constexpr bool check_coords() noexcept
 
 } // namespace
 
+/*!
+ * @brief Construct an instance of EvaluateAt given arguments by value
+ *
+ * Rather than the unwieldy syntax `EvaluateAt<decltype(Ns)...>{}`, use this
+ * helper function to construct the instance when given `Ns` by value instead
+ * of as types.
+ *
+ * @see EvaluateAt
+ */
 template <class... Ns>
 constexpr auto evaluate_at(Ns...) noexcept
 {
@@ -225,6 +265,23 @@ constexpr auto evaluate_at(Ns...) noexcept
     return EvaluateAt<Ns...>();
 }
 
+/*!
+ * @brief Functor representing a partial derivative value as DOF
+ *
+ * This class is intended for use as a constraint in `derive_shape_functions`.
+ * The indices `(I, Is...)` represent the variable which should be
+ * differentiated with respect to, and the point at which to take the partial
+ * derivative is a `typeconst_list` encoded in the type `CoordList`.
+ *
+ * For example, a degree of freedom which is the value of the cross derivative
+ * `\frac{\partial^2 f}{\partial x \partial y}` at the origin would be encoded
+ * as the type `PartialAt<typeconst_list<Rationals::Rational<0, 1>, Rationals::Rational<0, 1>>, 0, 1>`.
+ *
+ * In practice, construct an instance using `partial_at`.
+ *
+ * @see partial_at
+ * @see derive_shape_functions
+ */
 template <class CoordList, auto I, auto... Is>
 class PartialAt
 {
@@ -262,6 +319,16 @@ private:
     }
 };
 
+/*!
+ * @brief Helper to construct `PartialAt` instance correctly.
+ *
+ * Use `partial_at<I, Is...>(coords...)` to construct a `PartialAt` instance
+ * representing a constraint on the value of the partial derivative with
+ * respect to the variables indexed by `(I, Is...)` at the point in `R^n`
+ * given by `(coords...)`. For example, a constraint on the cross derivative
+ * `\frac{\partial^2 f}{\partial x \partial y}` at the origin can be
+ * constructed using `partial_at<0, 1>(Rationals::rational<0>, Rationals::rational<0>)`.
+ */
 template <auto I, auto... Is, class... Coords>
 constexpr auto partial_at(Coords...) noexcept
 {
