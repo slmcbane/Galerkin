@@ -7,6 +7,11 @@
 #ifndef QUADRATURE_HPP
 #define QUADRATURE_HPP
 
+/*!
+ * @file Quadrature.hpp
+ * @brief Implementation of quadrature rules for numerical integration
+ */
+
 #include <array>
 #include "utils.hpp"
 #include "Legendre.hpp"
@@ -14,9 +19,16 @@
 namespace Galerkin
 {
 
+/// All functionality for numerical integration is in this namespace
 namespace Quadrature
 {
 
+/*!
+ * @brief Representation of a quadrature rule
+ * 
+ * A quadrature rule consists of a list of points and weights; the integral of
+ * a function `f` is `sum(f(points[i]) * weights[i])`.
+ */
 template <class Point, class Weight, auto N>
 struct Rule
 {
@@ -24,6 +36,9 @@ struct Rule
     const std::array<Weight, N> weights;
 };
 
+/*!
+ * @brief Integrate function `f` using the given quadrature rule.
+ */
 template <class F, class P, class W, auto N>
 constexpr auto integrate(const F &f, const Rule<P, W, N> &rule) noexcept
 {
@@ -35,6 +50,12 @@ constexpr auto integrate(const F &f, const Rule<P, W, N> &rule) noexcept
     return x;
 }
 
+/*!
+ * @brief Integrate function `f` over `Dim` dimensional box
+ * 
+ * Given a function `f: R^n -> R`, integrate `f` over the box `[-1, 1]^n`. This
+ * is done by simply nesting one dimensional quadrature rules.
+ */
 template <auto Dim, class F, class P, class W, auto N>
 constexpr auto box_integrate(const F &f, const Rule<P, W, N> &rule) noexcept
 {
@@ -59,6 +80,7 @@ constexpr auto box_integrate(const F &f, const Rule<P, W, N> &rule) noexcept
     }
 }
 
+/// Compute the weights for a Gauss-Legendre rule.
 template <class T, auto N>
 constexpr auto legendre_weights() noexcept
 {
@@ -101,6 +123,12 @@ TEST_CASE("Test compute points for Gauss-Legendre quadrature")
  * End test of computed quadrature points.
  *******************************************************************************/
 
+/*!
+ * @brief Gauss-Legendre quadrature rule with `N` points.
+ * 
+ * This quadrature rule over the interval `(-1, 1)` is exact for polynomials of
+ * degree <= `2N-1`.
+ */
 template <class T, auto N>
 constexpr Rule<T, T, N> legendre_rule = Rule<T, T, N> { Legendre::roots<T, N>,
                                                         legendre_weights<T, N>(),
@@ -159,6 +187,11 @@ TEST_CASE("Test that integrals are computed exactly")
  * End test block
  *******************************************************************************/
 
+/*!
+ * @brief Compute a rule with N^2 points for quadrature on a triangle.
+ * 
+ * @see triangle_rule
+ */
 template <class T, auto N>
 constexpr auto compute_triangle_rule() noexcept
 {
