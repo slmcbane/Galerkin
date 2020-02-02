@@ -139,7 +139,7 @@ public:
         const auto y = m_coeffs[4] * xi * eta + m_coeffs[5] * xi + m_coeffs[6] * eta +
                        m_coeffs[7];
         
-        return std::array<decltype(x*y), 2>{x, y};
+        return std::array<std::remove_cv_t<decltype(x)>, 2>{x, y};
     }
 
     constexpr auto detJ() const noexcept
