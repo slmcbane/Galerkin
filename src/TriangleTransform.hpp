@@ -13,6 +13,7 @@
  */
 
 #include "FunctionBase.hpp"
+#include "Quadrature.hpp"
 #include "Rationals.hpp"
 #include "TransformBase.hpp"
 
