@@ -25,10 +25,26 @@ namespace Galerkin
 namespace Transforms
 {
 
+/*!
+ * @brief Implements coordinate mapping from reference triangle.
+ * 
+ * A `TriangleTransform` represents the coordinate map from the reference
+ * triangle defined by vertices (-1, -1), (-1, 1), (1, -1), in that order. It
+ * implements the interface required to use functionality of `TransformBase`.
+ */
 template <class T>
 class TriangleTransform : public TransformBase<2, TriangleTransform<T>>
 {
 public:
+    /*!
+     * @brief Construct the map from 3 vertices
+     * 
+     * The three vertices correspond to the vertices of the reference triangle
+     * as listed in the class's general documentation. The types of the passed
+     * vertices must implement element access through a `get` function found via
+     * ADL - e.g. `std::tuple`, `std::array`, or a custom type as described in
+     * the documentation for `BilinearQuadTransform`.
+     */
     template <class P1, class P2, class P3>
     constexpr TriangleTransform(const P1 &p1, const P2 &p2, const P3 &p3) noexcept :
         m_coeffs{ 0 }
@@ -125,6 +141,9 @@ public:
     template <int I, class F>
     constexpr auto quadrature(F &&f) const noexcept
     {
+        // To integrate a polynomial with total degree D, we need the number of
+        // quadrature points N to satisfy 2N - 2 >= D. Adding D % 2 to the
+        // computed N = (D+2) / 2 corrects for the case where D is odd.
         constexpr auto npoints = (I + 2) / 2 + I % 2 > 0 ? (I + 2) / 2 + I % 2 : 1;
         return Quadrature::integrate(std::forward<F>(f), Quadrature::triangle_rule<T, npoints>);
     }
@@ -133,6 +152,12 @@ private:
     std::array<T, 6> m_coeffs;
 };
 
+/*!
+ * @brief Helper to construct a double precision triangle transform.
+ * 
+ * This function simply forwards the arguments to the `TriangleTransform<double>`
+ * constructor for the most common case.
+ */
 template <class... Ps>
 constexpr auto triangle_transform(const Ps &...ps) noexcept
 {
