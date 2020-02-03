@@ -216,16 +216,16 @@ public:
     }
 
     template <int I, class F>
-    constexpr auto quadrature(const F &f) const noexcept
+    constexpr auto quadrature(F &&f) const noexcept
     {
         constexpr auto npoints = (I + 1) / 2 + (I - 1) % 2;
         if constexpr (npoints <= 0)
         {
-            return Quadrature::box_integrate<2>(f, Quadrature::legendre_rule<T, 1>);
+            return Quadrature::box_integrate<2>(std::forward<F>(f), Quadrature::legendre_rule<T, 1>);
         }
         else
         {
-            return Quadrature::box_integrate<2>(f, Quadrature::legendre_rule<T, npoints>);
+            return Quadrature::box_integrate<2>(std::forward<F>(f), Quadrature::legendre_rule<T, npoints>);
         }
     }
 
