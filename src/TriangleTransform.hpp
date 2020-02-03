@@ -12,6 +12,7 @@
  * @brief Implementation of transformation from reference to instantiated triangle domain.
  */
 
+#include "FunctionBase.hpp"
 #include "Rationals.hpp"
 #include "TransformBase.hpp"
 
@@ -58,6 +59,76 @@ public:
         return std::array<std::remove_cv_t<decltype(x)>, 2>{ x, y };
     }
 
+    constexpr auto detJ() const noexcept
+    {
+        return Functions::ConstantFunction(m_coeffs[0] * m_coeffs[4] -
+                                           m_coeffs[1] * m_coeffs[3]);
+    }
+
+    template <int I, int J>
+    constexpr auto jacobian() const noexcept
+    {
+        static_assert(I <= 1 && J <= 1 && I >= 0 && J >= 0);
+        if constexpr (I == 0)
+        {
+            if constexpr (J == 0)
+            {
+                return Functions::ConstantFunction(m_coeffs[0]);
+            }
+            else
+            { 
+                return Functions::ConstantFunction(m_coeffs[1]);
+            }
+        }
+        else
+        {
+            if constexpr (J == 0)
+            { 
+                return Functions::ConstantFunction(m_coeffs[3]);
+            }
+            else
+            {
+                return Functions::ConstantFunction(m_coeffs[4]);
+            }
+        }
+    }
+
+    template <int I, int J>
+    constexpr auto inv_jacobian() const noexcept
+    {
+        static_assert(I <= 1 && J <= 1 && I >= 0 && J >= 0);
+        const auto determinant = m_coeffs[0] * m_coeffs[4] - m_coeffs[1] * m_coeffs[3];
+        if constexpr (I == 0)
+        {
+            if constexpr (J == 0)
+            {
+                return Functions::ConstantFunction(m_coeffs[0] / determinant);
+            }
+            else
+            {
+                return Functions::ConstantFunction(m_coeffs[1] / determinant);
+            }
+        }
+        else
+        {
+            if constexpr (J == 0)
+            {
+                return Functions::ConstantFunction(m_coeffs[3] / determinant);
+            }
+            else
+            {
+                return Functions::ConstantFunction(m_coeffs[4] / determinant);
+            }
+        }
+    }
+
+    template <int I, class F>
+    constexpr auto quadrature(F &&f) const noexcept
+    {
+        constexpr auto npoints = (I + 2) / 2 + I % 2 > 0 ? (I + 2) / 2 + I % 2 : 1;
+        return Quadrature::integrate(std::forward<F>(f), Quadrature::triangle_rule<T, npoints>);
+    }
+
 private:
     std::array<T, 6> m_coeffs;
 };
@@ -97,6 +168,43 @@ SUBCASE("Check transformations of points")
     REQUIRE(get<1>(pt) == doctest::Approx(1.0));
 } // SUBCASE
 
+SUBCASE("Check the Jacobian elements and determinant")
+{
+    constexpr auto arg = std::tuple(0.0, -0.1);
+    REQUIRE(transform.detJ()(arg) == doctest::Approx(1.0 / 8));
+    REQUIRE(transform.jacobian<0, 0>()(arg) == doctest::Approx(0.25));
+    REQUIRE(transform.jacobian<0, 1>()(arg) == doctest::Approx(-0.25));
+    REQUIRE(transform.jacobian<1, 0>()(arg) == doctest::Approx(0.25));
+    REQUIRE(transform.jacobian<1, 1>()(arg) == doctest::Approx(0.25));
+} // SUBCASE
+
+} // TEST_CASE
+
+TEST_CASE("[Galerkin::Transforms] Test integration through a triangle transform")
+{
+    /*
+     * This test case uses a transformation mapping to the triangle with vertices
+     * (0, 0), (0, 1), (3/2, 1). I integrated by hand the polynomial x^2 * y over
+     * this region, and the test checks that integrating the corresponding
+     * polynomial in the reference domain returns the correct result, which is
+     * 9 / 40.
+     */
+    constexpr auto transform = triangle_transform(std::tuple(0, 0),
+                                                  std::tuple(0, 1),
+                                                  std::tuple(1.5, 1));
+
+    constexpr auto poly1 = Metanomials::metanomial(
+        Metanomials::term(Rationals::rational<3, 4>, Metanomials::Powers<1, 0>{}),
+        Metanomials::term(Rationals::rational<3, 4>, Metanomials::Powers<0, 0>{})
+    );
+    constexpr auto poly2 = Metanomials::metanomial(
+        Metanomials::term(Rationals::rational<1, 2>, Metanomials::Powers<1, 0>{}),
+        Metanomials::term(Rationals::rational<1, 2>, Metanomials::Powers<0, 1>{}),
+        Metanomials::term(Rationals::rational<1>, Metanomials::Powers<0, 0>{})
+    );
+    constexpr auto integrand = poly1 * poly1 * poly2;
+
+    REQUIRE(transform.integrate<3>(integrand) == doctest::Approx(9.0 / 40));
 } // TEST_CASE
 
 #endif // DOCTEST_LIBRARY_INCLUDED

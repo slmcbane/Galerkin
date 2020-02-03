@@ -17,3 +17,4 @@
 #include "../src/UniformScaling.hpp"
 #include "../src/BilinearQuadTransform.hpp"
 #include "../src/Interval.hpp"
+#include "../src/TriangleTransform.hpp"
