@@ -7,6 +7,11 @@
 #ifndef FUNCTIONBASE_HPP
 #define FUNCTIONBASE_HPP
 
+/*!
+ * @file FunctionBase.hpp
+ * @brief Functionality (ha) related to functions from `R^n -> R`.
+ */
+
 #include "utils.hpp"
 #include "Rationals.hpp"
 
@@ -27,6 +32,13 @@ namespace Functions
 template <class Derived>
 class FunctionBase;
 
+/*!
+ * @brief Represents the sum of two scalar functions.
+ * 
+ * Given two functions `f` and `g`, `FunctionSum(f, g)` returns a new scalar
+ * function that when called, returns `f(x) + g(x)` and whose partial derivative
+ * with respect to `x_i` is the sum of the partial derivatives of `f` and `g`.
+ */
 template <class F1, class F2>
 class FunctionSum : public FunctionBase<FunctionSum<F1, F2>>
 {
@@ -50,6 +62,12 @@ private:
     F2 m_f2;
 };
 
+/*!
+ * @brief Represent the product of two scalar functions
+ * 
+ * Given two functions `f` and `g`, `FunctionProduct(f, g)(x)` evaluates
+ * `f(x) * g(x)`, and has the appropriate partial derivatives as well.
+ */
 template <class F1, class F2>
 class FunctionProduct : public FunctionBase<FunctionProduct<F1, F2>>
 {
@@ -73,6 +91,9 @@ private:
     F2 m_f2;
 };
 
+/*!
+ * @brief Given a function `f`, represents the function `-f`.
+ */
 template <class F>
 class FunctionNegation : public FunctionBase<FunctionNegation<F>>
 {
@@ -95,6 +116,12 @@ private:
     F m_f;
 };
 
+/*!
+ * @brief Represent the quotient of two scalar functions
+ * 
+ * Given scalar functions `f` and `g`, `FunctionQuotient(f, g)(x)` evaluates
+ * `f(x) / g(x)` and also has the appropriate partial derivatives.
+ */
 template <class F1, class F2>
 class FunctionQuotient : public FunctionBase<FunctionQuotient<F1, F2>>
 {
@@ -119,6 +146,21 @@ private:
     F2 m_f2;
 };
 
+/*!
+ * @brief CRTP base class providing functionality for scalar functions.
+ * 
+ * Classes that derive from `FunctionBase` inherit a suite of operator
+ * functionality; they may now be used in expressions like `(f*g)(x)` or
+ * `(f+g)*h`. This is accomplished using the derived classes `FunctionSum`,
+ * `FunctionProduct`, `FunctionQuotient`, and `FunctionNegation`. The derived
+ * class is expected to implement a call operator, and a member function
+ * template `partial<I>()` that returns a new function object that when called,
+ * evaluates the partial derivative with respect to the `I`-th component of the
+ * function's vector argument (functions are `f: R^n -> R`).
+ * 
+ * The one piece of functionality not implemented is composition of functions
+ * and the chain rule; I haven't needed it yet.
+ */
 template <class Derived>
 class FunctionBase
 {
@@ -163,6 +205,13 @@ private:
     friend Derived;
 };
 
+/*!
+ * @brief Represents the scalar function `f(x) = c` with `c` a constant.
+ * 
+ * Construct a `ConstantFunction` returning the value `x` by `ConstantFunction(x)`;
+ * the new object, when called, returns `x` and its partial derivatives return
+ * `ConstantFunction(Rationals::rational<0>)`.
+ */
 template <class T>
 class ConstantFunction : public FunctionBase<ConstantFunction<T>>
 {
