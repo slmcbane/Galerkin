@@ -7,14 +7,4 @@
 #define DOCTEST_CONFIG_IMPLEMENT_WITH_MAIN
 #include "doctest.hpp"
 
-#include "../src/Rationals.hpp"
-#include "../src/Metanomials.hpp"
-#include "../src/Legendre.hpp"
-#include "../src/Quadrature.hpp"
-#include "../src/MetaLinAlg.hpp"
-#include "../src/Elements.hpp"
-#include "../src/Polynomials.hpp"
-#include "../src/UniformScaling.hpp"
-#include "../src/BilinearQuadTransform.hpp"
-#include "../src/Interval.hpp"
-#include "../src/TriangleTransform.hpp"
+#include "../Galerkin.hpp"
