@@ -212,6 +212,7 @@ struct typeconst_list<>
 
     /// Retrieve the number of items in the list.
     static constexpr auto count = 0UL;
+    static constexpr size_t size() noexcept { return count; }
 
     /// Base specialization of `lst.map`; a no-op for the empty specialization.
     template <class F>
@@ -289,6 +290,7 @@ struct typeconst_list<T, Types...>
 
     /// Get the number of elements in the list.
     static constexpr auto count = 1 + sizeof...(Types);
+    static constexpr auto size() noexcept { return count; }
 
     /// Return a list containing the types returned by applying `f` elementwise
     /// to default-constructed instances of `Types...`.
