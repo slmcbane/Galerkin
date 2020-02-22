@@ -90,22 +90,22 @@ public:
         {
             if constexpr (J == 0)
             {
-                return Functions::ConstantFunction(m_coeffs[0]);
+                return Functions::ConstantFunction(m_coeffs[4]);
             }
             else
             { 
-                return Functions::ConstantFunction(m_coeffs[1]);
+                return Functions::ConstantFunction(-m_coeffs[1]);
             }
         }
         else
         {
             if constexpr (J == 0)
             { 
-                return Functions::ConstantFunction(m_coeffs[3]);
+                return Functions::ConstantFunction(-m_coeffs[3]);
             }
             else
             {
-                return Functions::ConstantFunction(m_coeffs[4]);
+                return Functions::ConstantFunction(m_coeffs[0]);
             }
         }
     }
