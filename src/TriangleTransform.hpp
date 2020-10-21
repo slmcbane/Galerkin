@@ -90,22 +90,22 @@ public:
         {
             if constexpr (J == 0)
             {
-                return Functions::ConstantFunction(m_coeffs[4]);
+                return Functions::ConstantFunction(m_coeffs[0]);
             }
             else
             { 
-                return Functions::ConstantFunction(-m_coeffs[1]);
+                return Functions::ConstantFunction(m_coeffs[1]);
             }
         }
         else
         {
             if constexpr (J == 0)
             { 
-                return Functions::ConstantFunction(-m_coeffs[3]);
+                return Functions::ConstantFunction(m_coeffs[3]);
             }
             else
             {
-                return Functions::ConstantFunction(m_coeffs[0]);
+                return Functions::ConstantFunction(m_coeffs[4]);
             }
         }
     }
@@ -119,22 +119,22 @@ public:
         {
             if constexpr (J == 0)
             {
-                return Functions::ConstantFunction(m_coeffs[0] / determinant);
+                return Functions::ConstantFunction(m_coeffs[4] / determinant);
             }
             else
             {
-                return Functions::ConstantFunction(m_coeffs[1] / determinant);
+                return Functions::ConstantFunction(-m_coeffs[1] / determinant);
             }
         }
         else
         {
             if constexpr (J == 0)
             {
-                return Functions::ConstantFunction(m_coeffs[3] / determinant);
+                return Functions::ConstantFunction(-m_coeffs[3] / determinant);
             }
             else
             {
-                return Functions::ConstantFunction(m_coeffs[4] / determinant);
+                return Functions::ConstantFunction(m_coeffs[0] / determinant);
             }
         }
     }
