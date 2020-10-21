@@ -911,6 +911,56 @@ TEST_CASE("Partial derivatives of a metanomial")
 
 } /* namespace Metanomials */
 
+/********************************************************************************
+ * Tests for PowerFunction
+ * 
+ * These tests need to go here because of include order.
+ *******************************************************************************/
+#ifdef DOCTEST_LIBRARY_INCLUDED
+
+namespace Functions
+{
+
+TEST_CASE("[Galerkin::Functions] Test PowerFunction")
+{
+    // f(x) = x^2 - x + 2
+    // g(x) = f(x)^3
+    {
+        constexpr auto f = Galerkin::Metanomials::metanomial(
+            Metanomials::term(Rationals::rational<1>, Metanomials::powers(intgr_constant<2>)),
+            Metanomials::term(Rationals::rational<-1>, Metanomials::powers(intgr_constant<1>)),
+            Metanomials::term(Rationals::rational<2>, Metanomials::powers(intgr_constant<0>)));
+        constexpr auto g = PowerFunction(f, Rationals::rational<3>);
+        REQUIRE(g(Rationals::rational<2>) == Rationals::rational<64>);
+        REQUIRE(partial<0>(g)(Rationals::rational<2>) == Rationals::rational<144>);
+        REQUIRE(g(Rationals::rational<0>) == Rationals::rational<8>);
+        REQUIRE(partial<0>(g)(Rationals::rational<0>) == Rationals::rational<-12>);
+    }
+
+    // f(x) = x^2
+    // g(x) = sqrt(x)
+    {
+        constexpr auto g = PowerFunction(
+            Metanomials::metanomial(
+                Metanomials::term(Rationals::rational<1>, Metanomials::powers(intgr_constant<2>))
+            ),
+            Rationals::rational<1, 2>
+        );
+
+        REQUIRE(g(1) == doctest::Approx(1.0));
+        REQUIRE(g(20) == doctest::Approx(20));
+        REQUIRE(partial<0>(g)(1) == doctest::Approx(1));
+        REQUIRE(partial<0>(g)(3.14) == doctest::Approx(1));
+    }
+}
+
+} // namespace Functions
+#endif // DOCTEST_LIBRARY_INCLUDED
+
+/********************************************************************************
+ * End test block.
+ *******************************************************************************/
+
 } /* namespace Galerkin */
 
 #endif /* MULTINOMIALS_HPP */

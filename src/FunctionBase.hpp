@@ -14,6 +14,9 @@
 
 #include "utils.hpp"
 #include "Rationals.hpp"
+#include "Metanomials.hpp"
+
+#include <cmath>
 
 namespace Galerkin
 {
@@ -253,6 +256,39 @@ TEST_CASE("[Galerkin::Functions] Test ConstantFunction")
 /********************************************************************************
  * End test block.
  *******************************************************************************/
+
+/*!
+ * @brief Represents the raising of a function to a power.
+ * 
+ * The type T of the exponent is a Rationals::rational; thus it can be stored
+ * nowhere.
+ */
+template <class F, class T>
+class PowerFunction : public FunctionBase<PowerFunction<F, T>>
+{
+public:
+    constexpr PowerFunction(const F &f, [[maybe_unused]] T pow) : m_fn(f)
+    {
+    }
+
+    template <class... Args>
+    constexpr auto operator()(const Args &... args) const
+    {
+        return std::pow(m_fn(args...), static_cast<double>(T{}));
+    }
+
+    template <auto I>
+    constexpr auto partial() const noexcept
+    {
+        constexpr auto new_power = T{} - Rationals::rational<1>;
+        const auto inner_partial = m_fn.template partial<I>();
+        return PowerFunction<F, std::decay_t<decltype(new_power)>>(m_fn, new_power)
+            * ConstantFunction(T{}) * inner_partial;
+    }
+
+private:
+    F m_fn;
+};
 
 } // namespace Functions
 
