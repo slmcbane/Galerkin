@@ -15,7 +15,7 @@ namespace Legendre
 // This works up to 14th order before hitting a constexpr evaluation limit in
 // clang.
 template <auto I>
-constexpr auto polynomial = 
+constexpr inline auto polynomial = 
     (Metanomials::metanomial(
         term(Rationals::rational<2*I-1>,
              Metanomials::powers(intgr_constant<1>))) * polynomial<I-1>
@@ -23,13 +23,13 @@ constexpr auto polynomial =
     intgr_constant<I>;
 
 template <>
-constexpr auto polynomial<0> = Metanomials::metanomial(
+constexpr inline auto polynomial<0> = Metanomials::metanomial(
     term(Rationals::rational<1>,
          Metanomials::powers(intgr_constant<0>))
 );
 
 template <>
-constexpr auto polynomial<1> = Metanomials::metanomial(
+constexpr inline auto polynomial<1> = Metanomials::metanomial(
     term(Rationals::rational<1>,
          Metanomials::powers(intgr_constant<1>))
 );
@@ -80,7 +80,7 @@ constexpr auto interval_root(P poly, T low, T high)
     while (poly(mid) != zero<T>)
     {
         auto delta = -poly(mid) / pprime(mid);
-        if (abs(delta / mid) < 2 * std::numeric_limits<T>::epsilon())
+        if (abs(delta / mid) < 4 * std::numeric_limits<T>::epsilon())
         {
             break;
         }
