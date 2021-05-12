@@ -249,10 +249,10 @@ constexpr auto to_array(Powers<Ps...>) noexcept
     return std::array<unsigned, sizeof...(Ps)>{Ps...};
 }
 
-template <class... Ps>
-constexpr auto expand_powers(Ps...) noexcept
+template <class P, class... Ps>
+constexpr auto expand_powers(P, Ps...) noexcept
 {
-    return std::array{to_array(Ps{})...};
+    return std::array<std::decay_t<decltype(to_array(P{}))>, sizeof...(Ps)+1>{to_array(P{}), to_array(Ps{})...};
 }
 
 template <std::size_t N, std::size_t... Is>
