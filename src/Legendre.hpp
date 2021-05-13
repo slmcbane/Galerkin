@@ -17,18 +17,18 @@ namespace Legendre
 // clang.
 template <auto I>
 constexpr inline auto polynomial = (Polynomials::make_poly(
-                                        std::tuple(2*I-1),
+                                        std::tuple(Rationals::Rational(2*I-1)),
                                         Polynomials::PowersList<Polynomials::Powers<1>>{}) *
                                         polynomial<I - 1> +
-                                    polynomial<I - 2> * (1 - I)) / static_cast<double>(I);
+                                    polynomial<I - 2> * Rationals::rational<1 - I>) / Rationals::rational<I>;
 
 template <>
 constexpr inline auto polynomial<0> = Polynomials::make_poly(
-    std::tuple(1), Polynomials::PowersList<Polynomials::Powers<0>>{});
+    std::tuple(Rationals::Rational(1)), Polynomials::PowersList<Polynomials::Powers<0>>{});
 
 template <>
 constexpr inline auto polynomial<1> = Polynomials::make_poly(
-    std::tuple(1), Polynomials::PowersList<Polynomials::Powers<1>>{});
+    std::tuple(Rationals::Rational(1)), Polynomials::PowersList<Polynomials::Powers<1>>{});
 
 /********************************************************************************
  * Test that Legendre polynomials are correct.
@@ -44,39 +44,39 @@ TEST_CASE("Test computed Legendre polynomials")
     SUBCASE("Order 0")
     {
         constexpr auto poly = polynomial<0>;
-        REQUIRE(poly.coeffs()[0] == 1.0);
-        static_assert(std::is_same_v<std::decay_t<decltype(poly)>, Polynomial<int, Powers<0>>>);
+        REQUIRE(poly.coeffs()[0] == rational<1>);
+        static_assert(std::is_same_v<std::decay_t<decltype(poly)>, Polynomial<Rational, Powers<0>>>);
     }
 
     SUBCASE("Order 1")
     {
         constexpr auto poly = polynomial<1>;
-        REQUIRE(poly.coeffs()[0] == 1.0);
-        static_assert(std::is_same_v<std::decay_t<decltype(poly)>, Polynomial<int, Powers<1>>>);
+        REQUIRE(poly.coeffs()[0] == rational<1>);
+        static_assert(std::is_same_v<std::decay_t<decltype(poly)>, Polynomial<Rational, Powers<1>>>);
     }
 
     SUBCASE("Order 2")
     {
         constexpr auto poly = polynomial<2>;
-        REQUIRE(poly.coeffs()[0] == -0.5);
-        REQUIRE(poly.coeffs()[1] == 1.5);
+        REQUIRE(poly.coeffs()[0] == -rational<1, 2>);
+        REQUIRE(poly.coeffs()[1] == rational<3, 2>);
         static_assert(
-            std::is_same_v<std::decay_t<decltype(poly)>, Polynomial<double, Powers<0>, Powers<2>>>);
+            std::is_same_v<std::decay_t<decltype(poly)>, Polynomial<Rationals::Rational, Powers<0>, Powers<2>>>);
     }
 
     SUBCASE("Order 10")
     {
         constexpr auto poly = polynomial<10>;
-        REQUIRE(poly.coeffs()[0] == doctest::Approx(-63.0 / 256));
-        REQUIRE(poly.coeffs()[1] == doctest::Approx(3465.0 / 256));
-        REQUIRE(poly.coeffs()[2] == doctest::Approx(-30030.0 / 256));
-        REQUIRE(poly.coeffs()[3] == doctest::Approx(90090.0 / 256));
-        REQUIRE(poly.coeffs()[4] == doctest::Approx(-109395.0 / 256));
-        REQUIRE(poly.coeffs()[5] == doctest::Approx(46189.0 / 256));
+        REQUIRE(poly.coeffs()[0] == -rational<63, 256>);
+        REQUIRE(poly.coeffs()[1] == rational<3465, 256>);
+        REQUIRE(poly.coeffs()[2] == -rational<30030, 256>);
+        REQUIRE(poly.coeffs()[3] == rational<90090, 256>);
+        REQUIRE(poly.coeffs()[4] == -rational<109395, 256>);
+        REQUIRE(poly.coeffs()[5] == rational<46189, 256>);
         static_assert(
             std::is_same_v<
                 std::decay_t<decltype(poly)>,
-                Polynomial<double, Powers<0>, Powers<2>, Powers<4>, Powers<6>, Powers<8>, Powers<10>>>);
+                Polynomial<Rational, Powers<0>, Powers<2>, Powers<4>, Powers<6>, Powers<8>, Powers<10>>>);
     }
 } // TEST_CASE
 

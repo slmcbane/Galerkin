@@ -105,14 +105,15 @@ class Rational
      */
     constexpr operator double() const noexcept { return static_cast<double>(m_num) / m_den; }
 
-    template <class T, class = std::enable_if_t<std::is_integral_v<T>>>
-    constexpr Rational(T x) : m_num(x), m_den{1}
+    template <class N, class = std::enable_if_t<std::is_integral_v<N>>>
+    explicit constexpr Rational(N x) : m_num{x}, m_den{1}
     {
     }
 
-    template <
-        class T1, class T2, class = std::enable_if_t<std::is_integral_v<T1> && std::is_integral_v<T2>>>
-    constexpr Rational(T1 x, T2 y) : m_num(x), m_den{1}
+    constexpr Rational() : m_num{0}, m_den{1} {}
+
+    template <class N, class D, class = std::enable_if_t<std::is_integral_v<N> && std::is_integral_v<D>>>
+    explicit constexpr Rational(N x, D y) : m_num(x), m_den{1}
     {
         if (y < 0)
         {
@@ -127,6 +128,11 @@ class Rational
         m_num = std::get<0>(reduced);
         m_den = std::get<1>(reduced);
     }
+
+    constexpr Rational &operator+=(const Rational &other);
+    constexpr Rational &operator-=(const Rational &other);
+    constexpr Rational &operator*=(const Rational &other);
+    constexpr Rational &operator/=(const Rational &other);
 
   private:
     rational_num_type m_num;
@@ -183,6 +189,12 @@ constexpr auto operator+(const Rational &x, const Rational &y)
         x.den() * mult1);
 }
 
+constexpr Rational &Rational::operator+=(const Rational &other)
+{
+    *this = (*this + other);
+    return *this;
+}
+
 /********************************************************************************
  * Tests of rational addition
  *******************************************************************************/
@@ -203,14 +215,62 @@ TEST_CASE("[Galerkin::Rationals] Testing rational addition")
 /********************************************************************************
  *******************************************************************************/
 
-constexpr auto operator-(const Rational &x) noexcept
+constexpr auto operator-(const Rational &x) noexcept { return Rational(-x.num(), x.den()); }
+
+constexpr auto operator-(const Rational &x, const Rational &y) { return x + -y; }
+
+constexpr Rational &Rational::operator-=(const Rational &other)
 {
-    return Rational(-x.num(), x.den());
+    *this = (*this - other);
+    return *this;
 }
 
-constexpr auto operator-(const Rational &x, const Rational &y)
+template <class T>
+constexpr std::enable_if_t<std::is_integral_v<T>, Rational> operator+(const Rational &x, T y)
 {
-    return x + -y;
+    return x + Rational(y);
+}
+
+template <class T>
+constexpr std::enable_if_t<std::is_integral_v<T>, Rational> operator+(T y, const Rational &x)
+{
+    return x + Rational(y);
+}
+
+template <class T>
+constexpr std::enable_if_t<std::is_integral_v<T>, Rational> operator-(const Rational &x, T y)
+{
+    return x + -Rational(y);
+}
+
+template <class T>
+constexpr std::enable_if_t<std::is_integral_v<T>, Rational> operator-(T y, const Rational &x)
+{
+    return Rational(y) - x;
+}
+
+template <class T, T v>
+constexpr Rational operator+(const Rational &x, std::integral_constant<T, v>)
+{
+    return x + v;
+}
+
+template <class T, T v>
+constexpr Rational operator+(std::integral_constant<T, v>, const Rational &x)
+{
+    return x + v;
+}
+
+template <class T, T v>
+constexpr Rational operator-(const Rational &x, std::integral_constant<T, v>)
+{
+    return x - v;
+}
+
+template <class T, T v>
+constexpr Rational operator-(std::integral_constant<T, v>, const Rational &x)
+{
+    return x - v;
 }
 
 /********************************************************************************
@@ -238,6 +298,12 @@ constexpr auto operator*(const Rational &x, const Rational &y)
     return Rational(x.num() * y.num(), x.den() * y.den());
 }
 
+constexpr Rational &Rational::operator*=(const Rational &other)
+{
+    *this = (*this * other);
+    return *this;
+}
+
 constexpr auto operator/(const Rational &x, const Rational &y)
 {
     auto num = x.num() * static_cast<rational_num_type>(y.den());
@@ -251,17 +317,21 @@ constexpr auto operator/(const Rational &x, const Rational &y)
     }
 }
 
+constexpr Rational &Rational::operator/=(const Rational &other)
+{
+    *this = (*this / other);
+    return *this;
+}
+
 /// A `Rational` * an `integral_constant` returns a `Rational`.
 template <class T>
-constexpr std::enable_if_t<std::is_integral_v<T>, Rational>
-operator*(const Rational &x, T y) noexcept
+constexpr std::enable_if_t<std::is_integral_v<T>, Rational> operator*(const Rational &x, T y) noexcept
 {
     return Rational(x.num() * static_cast<rational_num_type>(y), x.den());
 }
 
 template <class T>
-constexpr std::enable_if_t<std::is_integral_v<T>, Rational>
-operator*(T y, const Rational &x) noexcept
+constexpr std::enable_if_t<std::is_integral_v<T>, Rational> operator*(T y, const Rational &x) noexcept
 {
     return x * y;
 }
@@ -280,8 +350,7 @@ constexpr Rational operator*(std::integral_constant<T, v>, const Rational &x)
 
 /// A `Rational` / an `integral_constant` returns a `Rational`.
 template <class T>
-constexpr std::enable_if_t<std::is_integral_v<T>, Rational>
-operator/(const Rational &x, T y)
+constexpr std::enable_if_t<std::is_integral_v<T>, Rational> operator/(const Rational &x, T y)
 {
     if (y < 0)
     {
@@ -294,8 +363,7 @@ operator/(const Rational &x, T y)
 }
 
 template <class T>
-constexpr std::enable_if_t<std::is_integral_v<T>, Rational>
-operator/(T y, const Rational &x)
+constexpr std::enable_if_t<std::is_integral_v<T>, Rational> operator/(T y, const Rational &x)
 {
     if (x.num() < 0)
     {
@@ -320,15 +388,13 @@ constexpr Rational operator/(std::integral_constant<T, v>, const Rational &x)
 }
 
 template <class T>
-constexpr std::enable_if_t<std::is_floating_point_v<T>, double>
-operator*(const Rational &x, T y)
+constexpr std::enable_if_t<std::is_floating_point_v<T>, double> operator*(const Rational &x, T y)
 {
     return static_cast<double>(x) * y;
 }
 
 template <class T>
-constexpr std::enable_if_t<std::is_floating_point_v<T>, double>
-operator/(const Rational &x, T y)
+constexpr std::enable_if_t<std::is_floating_point_v<T>, double> operator/(const Rational &x, T y)
 {
     return static_cast<double>(x) / y;
 }

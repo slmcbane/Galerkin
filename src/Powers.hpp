@@ -93,6 +93,19 @@ constexpr bool operator<(Powers<P1s...>, Powers<P2s...>) noexcept
     }
 }
 
+template <unsigned... P1s, unsigned... P2s>
+constexpr bool operator<=(Powers<P1s...>, Powers<P2s...>) noexcept
+{
+    if constexpr (std::is_same_v<Powers<P1s...>, Powers<P2s...>>)
+    {
+        return true;
+    }
+    else
+    {
+        return Powers<P1s...>{} < Powers<P2s...>{};
+    }
+}
+
 namespace detail
 {
 
@@ -185,7 +198,7 @@ constexpr T raise([[maybe_unused]] T x) noexcept
 {
     if constexpr (P == 0)
     {
-        return 1;
+        return T(1);
     }
     else if constexpr (P == 1)
     {
@@ -252,7 +265,8 @@ constexpr auto to_array(Powers<Ps...>) noexcept
 template <class P, class... Ps>
 constexpr auto expand_powers(P, Ps...) noexcept
 {
-    return std::array<std::decay_t<decltype(to_array(P{}))>, sizeof...(Ps)+1>{to_array(P{}), to_array(Ps{})...};
+    return std::array<std::decay_t<decltype(to_array(P{}))>, sizeof...(Ps) + 1>{
+        to_array(P{}), to_array(Ps{})...};
 }
 
 template <std::size_t N, std::size_t... Is>
@@ -390,7 +404,8 @@ constexpr std::size_t get_power_index(PowersList<Ps...>) noexcept
 template <std::size_t... Is, class... Ps>
 constexpr auto get_final_powers_impl(std::index_sequence<Is...>, PowersList<Ps...>) noexcept
 {
-    return PowersList<std::decay_t<decltype(PowersList<Ps...>::template term<get_power_index<Is>(PowersList<Ps...>{})>())>...>{};
+    return PowersList<std::decay_t<decltype(
+        PowersList<Ps...>::template term<get_power_index<Is>(PowersList<Ps...>{})>())>...>{};
 }
 
 template <class... Ps>
@@ -416,15 +431,16 @@ namespace detail
 {
 
 template <std::size_t... Is, std::size_t... Js>
-constexpr std::index_sequence<Is..., Js...> concatenate(std::index_sequence<Is...>, std::index_sequence<Js...>) noexcept
+constexpr std::index_sequence<Is..., Js...>
+    concatenate(std::index_sequence<Is...>, std::index_sequence<Js...>) noexcept
 {
     return std::index_sequence<Is..., Js...>{};
 }
 
 template <std::size_t... Is>
-constexpr std::index_sequence<(Is+1)...> add1to(std::index_sequence<Is...>) noexcept
+constexpr std::index_sequence<(Is + 1)...> add1to(std::index_sequence<Is...>) noexcept
 {
-    return std::index_sequence<(Is+1)...>{};
+    return std::index_sequence<(Is + 1)...>{};
 }
 
 template <std::size_t I, class... Ps>
@@ -451,7 +467,8 @@ struct FilterZeroPowers<I, P, Ps...>
         }
         else
         {
-            return std::make_pair(concatenate(std::index_sequence<0>{}, add1to(subseq_type{})),
+            return std::make_pair(
+                concatenate(std::index_sequence<0>{}, add1to(subseq_type{})),
                 PowersList<P>{} + sublist_type{});
         }
     }
