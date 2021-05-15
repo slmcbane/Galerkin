@@ -144,7 +144,7 @@ class Polynomial : public Functions::FunctionBase<Polynomial<T, Ps...>>
     }
 
     template <class F, class = std::enable_if_t<!std::is_same_v<F, Polynomial<T, Ps...>>>>
-    auto operator*(const Functions::FunctionBase<F> &f) const
+    constexpr auto operator*(const Functions::FunctionBase<F> &f) const
     {
         return Functions::FunctionBase<Polynomial<T, Ps...>>::operator*(static_cast<const F &>(f));
     }

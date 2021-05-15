@@ -146,7 +146,7 @@ TEST_CASE("[Galerkin::Transforms] Test uniform scaling transformation")
             doctest::Approx(transform.integrate<2>(
                 Polynomials::make_poly(std::tuple(3), Polynomials::PowersList<Polynomials::Powers<2>>{}))));
     }
-    /*
+
     SUBCASE("A one dimensional uniform transformation with volume change")
     {
         constexpr auto transform = UniformScaling(0.5, std::array<double, 1>{0.25});
@@ -164,47 +164,34 @@ TEST_CASE("[Galerkin::Transforms] Test uniform scaling transformation")
         REQUIRE(transform.inv_jacobian<0, 0>()(std::array<double, 1>{0.2}) == doctest::Approx(2.0));
 
         // Check partial derivatives of a function.
-        REQUIRE(transform.partial<0>(Metanomials::metanomial(
-            Metanomials::term(Rationals::rational<2>, Metanomials::powers(intgr_constant<2>))
-            ))(std::tuple(0.2)) == doctest::Approx(1.6));
+        REQUIRE(
+            transform.partial<0>(Polynomials::make_poly(
+                std::tuple(2), Polynomials::PowersList<Polynomials::Powers<2>>{}))(std::tuple(0.2)) ==
+            doctest::Approx(1.6));
 
         // Check integration of a function over the interval.
-        REQUIRE(transform.integrate<3>(
-            Metanomials::metanomial(
-                Metanomials::term(Rationals::rational<1>, Metanomials::powers(intgr_constant<3>)),
-                Metanomials::term(Rationals::rational<-1>, Metanomials::powers(intgr_constant<2>))
-            )
-        ) == doctest::Approx(-1.0 / 3));
+
+        REQUIRE(
+            transform.integrate<3>(Polynomials::make_poly(
+                std::tuple(1, -1),
+                Polynomials::PowersList<Polynomials::Powers<3>, Polynomials::Powers<2>>{})) ==
+            doctest::Approx(-1.0 / 3));
 
         // Check integrating the partial derivative.
         REQUIRE(
-            transform.integrate<2>(
-                transform.partial<0>(Metanomials::metanomial(
-                    Metanomials::term(Rationals::rational<1>, Metanomials::powers(intgr_constant<3>))
-                ))) ==
-            doctest::Approx(
-                transform.integrate<2>(
-                    Metanomials::metanomial(
-                        Metanomials::term(Rationals::rational<6>, Metanomials::powers(intgr_constant<2>))
-                    )
-                )
-            )
-        );
+            transform.integrate<2>(transform.partial<0>(Polynomials::make_poly(
+                std::tuple(1), Polynomials::PowersList<Polynomials::Powers<3>>{}))) ==
+            doctest::Approx(transform.integrate<2>(
+                Polynomials::make_poly(std::tuple(6), Polynomials::PowersList<Polynomials::Powers<2>>{}))));
 
         REQUIRE(
-            transform.integrate<2>(
-                transform.partial<0>(Metanomials::metanomial(
-                    Metanomials::term(Rationals::rational<1>, Metanomials::powers(intgr_constant<3>))
-                ))) == doctest::Approx(2.0)
-        );
+            transform.integrate<2>(transform.partial<0>(Polynomials::make_poly(
+                std::tuple(1), Polynomials::PowersList<Polynomials::Powers<3>>{}))) ==
+            doctest::Approx(2.0));
 
         REQUIRE(
-            transform.integrate<2>(
-                Metanomials::metanomial(
-                        Metanomials::term(Rationals::rational<3>, Metanomials::powers(intgr_constant<2>))
-                    )
-            ) == doctest::Approx(1.0)
-        );
+            transform.integrate<2>(Polynomials::make_poly(
+                std::tuple(3), Polynomials::PowersList<Polynomials::Powers<2>>{})) == doctest::Approx(1.0));
     }
 
     SUBCASE("A two-dimensional uniform scaling with volume change")
@@ -225,12 +212,14 @@ TEST_CASE("[Galerkin::Transforms] Test uniform scaling transformation")
 
         REQUIRE(transform.inv_jacobian<0, 0>()(std::tuple(0.1, 0.1)) == doctest::Approx(2.0 / 3));
         REQUIRE(transform.inv_jacobian<0, 1>()(std::array<int, 2>{1, -1}) == Rationals::rational<0>);
-        REQUIRE(transform.inv_jacobian<1, 1>()(std::array<double, 2>{0.2, -0.2}) == doctest::Approx(2.0 /
-    3));
+        REQUIRE(
+            transform.inv_jacobian<1, 1>()(std::array<double, 2>{0.2, -0.2}) == doctest::Approx(2.0 / 3));
 
-        constexpr auto poly = Polynomials::Polynomial<double, Metanomials::Powers<1, 1>,
-                                    Metanomials::Powers<1, 0>, Metanomials::Powers<0, 1>,
-                                    Metanomials::Powers<0, 0>>(0.25, -0.25, -0.25, 0.25);
+        constexpr auto poly = Polynomials::make_poly(
+            std::tuple(0.25, -0.25, -0.25, 0.25),
+            Polynomials::PowersList<
+                Polynomials::Powers<1, 1>, Polynomials::Powers<1, 0>, Polynomials::Powers<0, 1>,
+                Polynomials::Powers<0, 0>>{});
         constexpr auto partial0 = transform.partial<0>(poly);
         constexpr auto partial1 = transform.partial<1>(poly);
 
@@ -242,9 +231,9 @@ TEST_CASE("[Galerkin::Transforms] Test uniform scaling transformation")
         // Test the integration of the polynomial over the domain.
         REQUIRE(transform.integrate<1>(poly) == doctest::Approx(9.0 / 4));
         // Test integral of the squared gradient.
-        REQUIRE(transform.integrate<2>(partial0 * partial0 + partial1 * partial1) ==
-            doctest::Approx(2.0 / 3));
-    } */
+        REQUIRE(
+            transform.integrate<2>(partial0 * partial0 + partial1 * partial1) == doctest::Approx(2.0 / 3));
+    }
 
 } /* TEST_CASE */
 
