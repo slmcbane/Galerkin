@@ -12,10 +12,10 @@
  * @brief Implementation of a bilinear transformation of reference square.
  */
 
-#include "TransformBase.hpp"
-#include "Rationals.hpp"
 #include "Polynomial.hpp"
 #include "Quadrature.hpp"
+#include "Rationals.hpp"
+#include "TransformBase.hpp"
 
 #include <array>
 #include <tuple>
@@ -36,11 +36,9 @@ constexpr int sgn(T val)
 }
 
 template <class T1, class T2, class T3, class T4>
-constexpr bool check_quad_geometry(const T1 &p1, const T2 &p2, const T3 &p3,
-                                   const T4 &p4) noexcept
+constexpr bool check_quad_geometry(const T1 &p1, const T2 &p2, const T3 &p3, const T4 &p4) noexcept
 {
-    constexpr auto triangle_det = [](const auto &p1, const auto &p2, const auto &p3)
-    {
+    constexpr auto triangle_det = [](const auto &p1, const auto &p2, const auto &p3) {
         const auto x1 = get<0>(p1);
         const auto x2 = get<0>(p2);
         const auto x3 = get<0>(p3);
@@ -51,12 +49,9 @@ constexpr bool check_quad_geometry(const T1 &p1, const T2 &p2, const T3 &p3,
         return (x1 - x2) * (y3 - y2) - (y1 - y2) * (x3 - x2);
     };
 
-    const std::array<int, 4> dets {
-        sgn(triangle_det(p1, p2, p3)),
-        sgn(triangle_det(p2, p3, p4)),
-        sgn(triangle_det(p3, p4, p1)),
-        sgn(triangle_det(p4, p1, p2))
-    };
+    const std::array<int, 4> dets{
+        sgn(triangle_det(p1, p2, p3)), sgn(triangle_det(p2, p3, p4)), sgn(triangle_det(p3, p4, p1)),
+        sgn(triangle_det(p4, p1, p2))};
 
     return dets[0] != 0 && dets[1] == dets[0] && dets[2] == dets[0] && dets[3] == dets[0];
 }
@@ -78,24 +73,24 @@ constexpr bool check_quad_geometry(const T1 &p1, const T2 &p2, const T3 &p3,
 template <class T>
 class BilinearQuadTransform : public TransformBase<2, BilinearQuadTransform<T>>
 {
-public:
+  public:
     /*!
      * @brief Construct the transform with no geometry check from four vertices
      *
      * The arguments are vertices in the order in which they are connected. May
      * be clockwise or counter-clockwise; negative determinant of the transform
      * is OK.
-     * 
+     *
      * The types of the points must support `get` to access
      * elements, via ADL. For example, `std::tuple` and `std::array` work out of
      * the box but not `std::vector`. You might define a type that works like so:
-     * 
+     *
      *     struct Point
      *     {
      *         double x;
      *         double y;
      *     };
-     * 
+     *
      *     template <auto I>
      *     constexpr double get(Point pt) noexcept
      *     {
@@ -104,8 +99,8 @@ public:
      *     }
      */
     template <class T1, class T2, class T3, class T4>
-    constexpr BilinearQuadTransform(const T1 &p1, const T2 &p2, const T3 &p3,
-                                    const T4 &p4) noexcept : m_coeffs{0}
+    constexpr BilinearQuadTransform(const T1 &p1, const T2 &p2, const T3 &p3, const T4 &p4) noexcept
+        : m_coeffs{0}
     {
         compute_coefficients(p1, p2, p3, p4);
     }
@@ -114,8 +109,8 @@ public:
      * @brief Construct the transform from points, with geometry check.
      */
     template <class T1, class T2, class T3, class T4>
-    constexpr BilinearQuadTransform(const T1 &p1, const T2 &p2, const T3 &p3,
-                                    const T4 &p4, GeometryCheck) : m_coeffs {0}
+    constexpr BilinearQuadTransform(const T1 &p1, const T2 &p2, const T3 &p3, const T4 &p4, GeometryCheck)
+        : m_coeffs{0}
     {
         if (!check_quad_geometry(p1, p2, p3, p4))
         {
@@ -134,22 +129,19 @@ public:
     {
         const auto xi = get<0>(pt);
         const auto eta = get<1>(pt);
-        const auto x = m_coeffs[0] * xi * eta + m_coeffs[1] * xi + m_coeffs[2] * eta +
-                       m_coeffs[3];
-        const auto y = m_coeffs[4] * xi * eta + m_coeffs[5] * xi + m_coeffs[6] * eta +
-                       m_coeffs[7];
-        
+        const auto x = m_coeffs[0] * xi * eta + m_coeffs[1] * xi + m_coeffs[2] * eta + m_coeffs[3];
+        const auto y = m_coeffs[4] * xi * eta + m_coeffs[5] * xi + m_coeffs[6] * eta + m_coeffs[7];
+
         return std::array<std::remove_cv_t<decltype(x)>, 2>{x, y};
     }
 
     constexpr auto detJ() const noexcept
     {
-        return Polynomials::Polynomial<T, Metanomials::Powers<1, 0>,
-                                          Metanomials::Powers<0, 1>,
-                                          Metanomials::Powers<0, 0>
-                                      >(m_coeffs[1]*m_coeffs[4] - m_coeffs[0]*m_coeffs[5],
-                                        m_coeffs[0]*m_coeffs[6] - m_coeffs[2]*m_coeffs[4],
-                                        m_coeffs[1]*m_coeffs[6] - m_coeffs[2]*m_coeffs[5]);
+        return Polynomials::make_poly(
+            std::array{m_coeffs[1] * m_coeffs[4] - m_coeffs[0] * m_coeffs[5],
+                       m_coeffs[0] * m_coeffs[6] - m_coeffs[2] * m_coeffs[4],
+                       m_coeffs[1] * m_coeffs[6] - m_coeffs[2] * m_coeffs[5]},
+            Polynomials::PowersList<Polynomials::Powers<1, 0>, Polynomials::Powers<0, 1>, Polynomials::Powers<0, 0>>{});
     }
 
     template <int I, int J>
@@ -160,30 +152,28 @@ public:
         {
             if constexpr (J == 0)
             {
-                return Polynomials::Polynomial<T, Metanomials::Powers<0, 1>,
-                                                  Metanomials::Powers<0, 0>
-                                              >(m_coeffs[0], m_coeffs[1]);
+                return Polynomials::make_poly(std::array{m_coeffs[0], m_coeffs[1]},
+                    Polynomials::PowersList<Polynomials::Powers<0, 1>, Polynomials::Powers<0, 0>>{});
             }
             else
             {
-                return Polynomials::Polynomial<T, Metanomials::Powers<1, 0>,
-                                                  Metanomials::Powers<0, 0>
-                                              >(m_coeffs[0], m_coeffs[2]);
+                return Polynomials::make_poly(std::array{m_coeffs[0], m_coeffs[2]},
+                    Polynomials::PowersList<Polynomials::Powers<1, 0>, Polynomials::Powers<0, 0>>{});
             }
         }
         else
         {
             if constexpr (J == 0)
             {
-                return Polynomials::Polynomial<T, Metanomials::Powers<0, 1>,
-                                                  Metanomials::Powers<0, 0>
-                                              >(m_coeffs[4], m_coeffs[5]);
+                return Polynomials::make_poly(
+                    std::array{m_coeffs[4], m_coeffs[5]},
+                    Polynomials::PowersList<Polynomials::Powers<0, 1>, Polynomials::Powers<0, 0>>{});
             }
             else
             {
-                return Polynomials::Polynomial<T, Metanomials::Powers<1, 0>,
-                                                  Metanomials::Powers<0, 0>
-                                              >(m_coeffs[4], m_coeffs[6]);
+                return Polynomials::make_poly(
+                    std::array{m_coeffs[4], m_coeffs[6]},
+                    Polynomials::PowersList<Polynomials::Powers<1, 0>, Polynomials::Powers<0, 0>>{});
             }
         }
     }
@@ -229,31 +219,23 @@ public:
         }
     }
 
-private:
+  private:
     std::array<T, 8> m_coeffs;
 
     template <class... Ps>
-    constexpr void compute_coefficients(const Ps&... ps) noexcept
+    constexpr void compute_coefficients(const Ps &...ps) noexcept
     {
         static_assert(sizeof...(Ps) == 4);
         const auto xs = std::tuple(get<0>(ps)...);
         const auto ys = std::tuple(get<1>(ps)...);
-        m_coeffs[0] = Rationals::rational<1, 4> * 
-            (get<0>(xs) - get<1>(xs) + get<2>(xs) - get<3>(xs));
-        m_coeffs[1] = Rationals::rational<1, 4> *
-            (-get<0>(xs) - get<1>(xs) + get<2>(xs) + get<3>(xs));
-        m_coeffs[2] = Rationals::rational<1, 4> *
-            (-get<0>(xs) + get<1>(xs) + get<2>(xs) - get<3>(xs));
-        m_coeffs[3] = Rationals::rational<1, 4> *
-            (get<0>(xs) + get<1>(xs) + get<2>(xs) + get<3>(xs));
-        m_coeffs[4] = Rationals::rational<1, 4> *
-            (get<0>(ys) - get<1>(ys) + get<2>(ys) - get<3>(ys));
-        m_coeffs[5] = Rationals::rational<1, 4> *
-            (-get<0>(ys) - get<1>(ys) + get<2>(ys) + get<3>(ys));
-        m_coeffs[6] = Rationals::rational<1, 4> *
-            (-get<0>(ys) + get<1>(ys) + get<2>(ys) - get<3>(ys));
-        m_coeffs[7] = Rationals::rational<1, 4> *
-            (get<0>(ys) + get<1>(ys) + get<2>(ys) + get<3>(ys));
+        m_coeffs[0] = Rationals::rational<1, 4> * (get<0>(xs) - get<1>(xs) + get<2>(xs) - get<3>(xs));
+        m_coeffs[1] = Rationals::rational<1, 4> * (-get<0>(xs) - get<1>(xs) + get<2>(xs) + get<3>(xs));
+        m_coeffs[2] = Rationals::rational<1, 4> * (-get<0>(xs) + get<1>(xs) + get<2>(xs) - get<3>(xs));
+        m_coeffs[3] = Rationals::rational<1, 4> * (get<0>(xs) + get<1>(xs) + get<2>(xs) + get<3>(xs));
+        m_coeffs[4] = Rationals::rational<1, 4> * (get<0>(ys) - get<1>(ys) + get<2>(ys) - get<3>(ys));
+        m_coeffs[5] = Rationals::rational<1, 4> * (-get<0>(ys) - get<1>(ys) + get<2>(ys) + get<3>(ys));
+        m_coeffs[6] = Rationals::rational<1, 4> * (-get<0>(ys) + get<1>(ys) + get<2>(ys) - get<3>(ys));
+        m_coeffs[7] = Rationals::rational<1, 4> * (get<0>(ys) + get<1>(ys) + get<2>(ys) + get<3>(ys));
     }
 };
 
@@ -286,13 +268,11 @@ TEST_CASE("[Galerkin::Transforms] Test transform constructors")
 {
     // Simple translation.
     constexpr auto transform1 = BilinearQuadTransform<double>(
-        std::tuple(0.0, 0.0), std::tuple(0.0, 1.0), std::tuple(1.0, 1.0),
-        std::tuple(1.0, 0.0));
+        std::tuple(0.0, 0.0), std::tuple(0.0, 1.0), std::tuple(1.0, 1.0), std::tuple(1.0, 0.0));
 
     // Should construct exactly the same transform.
     constexpr BilinearQuadTransform<double> transform2 =
-        bilinear_quad(std::tuple(0, 0), std::tuple(0, 1), std::tuple(1, 1),
-                      std::tuple(1, 0));
+        bilinear_quad(std::tuple(0, 0), std::tuple(0, 1), std::tuple(1, 1), std::tuple(1, 0));
 
     REQUIRE(transform1 == transform2);
 
@@ -302,38 +282,38 @@ TEST_CASE("[Galerkin::Transforms] Test transform constructors")
 
     // Should be able to construct a transform with numbering of vertices
     // reversed.
-    REQUIRE_NOTHROW([[maybe_unused]] constexpr auto transform4 =
-                        bilinear_quad(std::tuple(0, 0), std::tuple(1, 0), std::tuple(1, 1),
-                                      std::tuple(0, 1),
-                                      GeometryCheck{}));
+    REQUIRE_NOTHROW(
+        [[maybe_unused]] constexpr auto transform4 = bilinear_quad(
+            std::tuple(0, 0), std::tuple(1, 0), std::tuple(1, 1), std::tuple(0, 1), GeometryCheck{}));
 
     // A non-convex quadrilateral should throw an exception when constructed
     // with a GeometryCheck argument, however.
-    REQUIRE_THROWS_AS([[maybe_unused]] BilinearQuadTransform<double>
-                          transform5(std::tuple(0, 0), std::tuple(0, 1), std::tuple(0.25, 0.25),
-                                     std::tuple(1.0, 0.0), GeometryCheck{}),
-                      GeometryException);
+    REQUIRE_THROWS_AS(
+        [[maybe_unused]] BilinearQuadTransform<double> transform5(
+            std::tuple(0, 0), std::tuple(0, 1), std::tuple(0.25, 0.25), std::tuple(1.0, 0.0),
+            GeometryCheck{}),
+        GeometryException);
 
     // It should not throw an exception when constructed without the
     // optional GeometryCheck
-    REQUIRE_NOTHROW([[maybe_unused]] constexpr auto transform6 = bilinear_quad(
-                        std::tuple(0, 0), std::tuple(0, 1), std::tuple(0.25, 0.25),
-                        std::tuple(1.0, 0)));
+    REQUIRE_NOTHROW(
+        [[maybe_unused]] constexpr auto transform6 =
+            bilinear_quad(std::tuple(0, 0), std::tuple(0, 1), std::tuple(0.25, 0.25), std::tuple(1.0, 0)));
 
     // It should throw when numbering of vertices is reversed, too.
-    REQUIRE_THROWS_AS([[maybe_unused]] BilinearQuadTransform<double>
-                          transform7(std::tuple(0.5, 0.5), std::tuple(0, 0), std::tuple(1.0, 0.5),
-                                     std::tuple(0.0, 1.0), GeometryCheck{}),
-                      GeometryException);
+    REQUIRE_THROWS_AS(
+        [[maybe_unused]] BilinearQuadTransform<double> transform7(
+            std::tuple(0.5, 0.5), std::tuple(0, 0), std::tuple(1.0, 0.5), std::tuple(0.0, 1.0),
+            GeometryCheck{}),
+        GeometryException);
 } // TEST_CASE
 
 TEST_CASE("[Galerkin::Transforms] Test that points are mapped correctly under a bilinear transform")
 {
     SUBCASE("A simple uniform scaling and translation")
     {
-        constexpr auto transform = bilinear_quad(
-            std::tuple(0, 0), std::tuple(0, 1), std::tuple(1, 1), std::tuple(1, 0)
-        );
+        constexpr auto transform =
+            bilinear_quad(std::tuple(0, 0), std::tuple(0, 1), std::tuple(1, 1), std::tuple(1, 0));
 
         auto transformed = transform(std::tuple(0, 0));
         REQUIRE(get<0>(transformed) == doctest::Approx(0.5));
@@ -354,9 +334,8 @@ TEST_CASE("[Galerkin::Transforms] Test that points are mapped correctly under a 
 
     SUBCASE("The same domain but with node numbering reversed")
     {
-        constexpr auto transform = bilinear_quad(
-            std::tuple(0, 0), std::tuple(1, 0), std::tuple(1, 1), std::tuple(0, 1)
-        );
+        constexpr auto transform =
+            bilinear_quad(std::tuple(0, 0), std::tuple(1, 0), std::tuple(1, 1), std::tuple(0, 1));
 
         auto transformed = transform(std::tuple(0, 0));
         REQUIRE(get<0>(transformed) == doctest::Approx(0.5));
@@ -375,8 +354,7 @@ TEST_CASE("[Galerkin::Transforms] Test that points are mapped correctly under a 
     {
         constexpr auto transform = bilinear_quad(
             std::tuple(0, 0), std::tuple(Rationals::rational<1, 4>, 1),
-            std::tuple(2, Rationals::rational<7, 4>), std::tuple(2, 0)
-        );
+            std::tuple(2, Rationals::rational<7, 4>), std::tuple(2, 0));
 
         auto transformed = transform(std::tuple(0, 0));
         REQUIRE(get<0>(transformed) == doctest::Approx(17.0 / 16));
@@ -392,8 +370,7 @@ TEST_CASE("[Galerkin::Transforms] Test Jacobian computations with bilinear trans
 {
     constexpr auto transform = bilinear_quad(
         std::tuple(0, 0), std::tuple(Rationals::rational<1, 4>, 1),
-        std::tuple(2, Rationals::rational<7, 4>), std::tuple(2, 0)
-    );
+        std::tuple(2, Rationals::rational<7, 4>), std::tuple(2, 0));
 
     constexpr auto detj = transform.detJ();
 
@@ -414,30 +391,30 @@ TEST_CASE("[Galerkin::Transforms] Test Jacobian computations with bilinear trans
 TEST_CASE("[Galerkin::Transforms] Exercise partials and integration for bilinear transform")
 {
     constexpr auto transform = bilinear_quad(
-        std::tuple(0, 0), std::tuple(1, 1), std::tuple(3, 1), std::tuple(2, 0),
-        GeometryCheck{}
-    );
+        std::tuple(0, 0), std::tuple(1, 1), std::tuple(3, 1), std::tuple(2, 0), GeometryCheck{});
 
-    constexpr auto f = Polynomials::Polynomial<double, Metanomials::Powers<1, 1>,
-                                                       Metanomials::Powers<1, 0>,
-                                                       Metanomials::Powers<0, 1>,
-                                                       Metanomials::Powers<0, 0>
-                                              >(0.25, -0.25, -0.25, 0.25);
-    
+    constexpr auto f = Polynomials::make_poly(
+        std::tuple(0.25, -0.25, -0.25, 0.25), Polynomials::PowersList<
+                                                  Polynomials::Powers<1, 1>, Polynomials::Powers<1, 0>,
+                                                  Polynomials::Powers<0, 1>, Polynomials::Powers<0, 0>>{});
+
     REQUIRE(transform.integrate<2>(f) == doctest::Approx(0.5));
-    
+
     constexpr auto dx = transform.partial<0>(f);
     constexpr auto dy = transform.partial<1>(f);
 
     REQUIRE(transform.integrate<2>(Functions::ConstantFunction(1)) == doctest::Approx(2.0));
-    REQUIRE(transform.integrate<2>(Metanomials::metanomial(
-        Metanomials::term(Rationals::rational<1>, Metanomials::Powers<2, 0>())
-    )) == doctest::Approx(2.0 / 3));
-    REQUIRE(transform.integrate<2>(Metanomials::metanomial(
-        Metanomials::term(Rationals::rational<1>, Metanomials::Powers<2, 2>())
-    )) == doctest::Approx(2.0 / 9));
+    REQUIRE(
+        transform.integrate<2>(
+            Polynomials::make_poly(std::tuple(1), Polynomials::PowersList<Polynomials::Powers<2, 0>>{})) ==
+        doctest::Approx(2.0 / 3));
 
-    REQUIRE(transform.integrate<2>(dx*dx + dy*dy) == doctest::Approx(0.5));
+    REQUIRE(
+        transform.integrate<2>(
+            Polynomials::make_poly(std::tuple(1), Polynomials::PowersList<Polynomials::Powers<2, 2>>{})) ==
+        doctest::Approx(2.0 / 9));
+
+    REQUIRE(transform.integrate<2>(dx * dx + dy * dy) == doctest::Approx(0.5));
 } // TEST_CASE
 
 #endif

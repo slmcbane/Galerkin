@@ -149,6 +149,12 @@ class Polynomial : public Functions::FunctionBase<Polynomial<T, Ps...>>
         return Functions::FunctionBase<Polynomial<T, Ps...>>::operator*(static_cast<const F &>(f));
     }
 
+    template <class F>
+    constexpr auto operator/(const Functions::FunctionBase<F> &f) const
+    {
+        return Functions::FunctionBase<Polynomial<T, Ps...>>::operator/(static_cast<const F &>(f));
+    } 
+
     template <class U>
     constexpr Polynomial<std::common_type_t<T, U>, Ps...> operator/(U x) const noexcept
     {
