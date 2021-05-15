@@ -14,7 +14,7 @@
 
 #include "TransformBase.hpp"
 #include "Rationals.hpp"
-#include "Polynomials.hpp"
+#include "Polynomial.hpp"
 #include "Quadrature.hpp"
 
 #include <array>

@@ -20,6 +20,7 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 #ifndef POLYNOMIAL_POLYNOMIAL_HPP
 #define POLYNOMIAL_POLYNOMIAL_HPP
 
+#include "FunctionBase.hpp"
 #include "Powers.hpp"
 
 #include <array>
@@ -74,7 +75,7 @@ constexpr auto eval_impl(
 } // namespace detail
 
 template <class T, class... Ps>
-class Polynomial
+class Polynomial : public Functions::FunctionBase<Polynomial<T, Ps...>>
 {
     std::array<T, sizeof...(Ps)> m_coeffs;
 
@@ -140,6 +141,12 @@ class Polynomial
             new_coeffs[i] = m_coeffs[i] * x;
         }
         return make_poly(new_coeffs, PowersList<Ps...>{});
+    }
+
+    template <class F, class = std::enable_if_t<!std::is_same_v<F, Polynomial<T, Ps...>>>>
+    auto operator*(const Functions::FunctionBase<F> &f) const
+    {
+        return Functions::FunctionBase<Polynomial<T, Ps...>>::operator*(static_cast<const F &>(f));
     }
 
     template <class U>

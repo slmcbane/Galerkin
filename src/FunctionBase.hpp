@@ -14,7 +14,6 @@
 
 #include "utils.hpp"
 #include "Rationals.hpp"
-#include "Metanomials.hpp"
 
 #include <cmath>
 
@@ -232,6 +231,12 @@ public:
     {
         return ConstantFunction(Rationals::rational<0>);
     }
+
+    constexpr operator T() const
+    {
+        return m_val;
+    }
+    
 private:
     T m_val;
 };
