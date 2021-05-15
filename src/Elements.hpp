@@ -12,7 +12,7 @@
  * @brief Basic functionality related to defining element types.
  */
 
-#include "MetaLinAlg.hpp"
+#include "LinAlg.hpp"
 #include "Polynomial.hpp"
 #include "utils.hpp"
 
@@ -146,10 +146,19 @@ namespace
 {
 
 template <class... Powers, class... Constraints>
-constexpr auto build_terms_matrix(ShapeFunctionForm<Powers...>, typeconst_list<Constraints...>) noexcept
+constexpr auto build_terms_matrix(
+    Polynomials::PowersList<Powers...>, const std::tuple<Constraints...> &constraints) noexcept
 {
-    return typeconst_list<Constraints...>().map(
-        [](auto constraint) { return make_list(constraint(Powers())...); });
+    LinAlg::Matrix<sizeof...(Constraints)> A;
+    static_for<0, sizeof...(Constraints), 1>([&](auto I) {
+        static_for<0, sizeof...(Constraints), 1>([&](auto J) {
+            A = A.set_entry(
+                I(), J(),
+                std::get<I()>(constraints)(
+                    typename std::tuple_element<J(), std::tuple<Powers...>>::type{}));
+        });
+    });
+    return A;
 }
 
 template <class... Coeffs, class... Powers>
@@ -176,20 +185,26 @@ constexpr auto multiply_coeffs(typeconst_list<Coeffs...>, ShapeFunctionForm<Powe
  * @see partial_at
  */
 template <class... Powers, class... Constraints>
-constexpr auto derive_shape_functions(ShapeFunctionForm<Powers...>, typeconst_list<Constraints...>) noexcept
+constexpr auto derive_shape_functions(
+    Polynomials::PowersList<Powers...>, const std::tuple<Constraints...> &constraints) noexcept
 {
     static_assert(
         sizeof...(Powers) == sizeof...(Constraints), "Ill-posed system to derive shape functions");
-    constexpr auto terms_matrix =
-        build_terms_matrix(ShapeFunctionForm<Powers...>(), typeconst_list<Constraints...>());
+    const auto terms_matrix = build_terms_matrix(Polynomials::PowersList<Powers...>{}, constraints);
 
-    return static_reduce<0, sizeof...(Constraints), 1>(
-        [=](auto I) {
-            constexpr auto coeffs = MetaLinAlg::linear_solve(
-                terms_matrix, MetaLinAlg::canonical<I(), sizeof...(Constraints)>());
-            return multiply_coeffs(coeffs, ShapeFunctionForm<Powers...>());
-        },
-        typeconst_list<>(), [](auto L, auto x) { return L.append(make_list(x)); });
+    using result_type = decltype(Polynomials::make_poly(
+        std::declval<std::array<Rationals::Rational, sizeof...(Powers)>>(),
+        Polynomials::PowersList<Powers...>{}));
+    std::array<result_type, sizeof...(Constraints)> shape_functions;
+
+    for (std::size_t i = 0; i < sizeof...(Constraints); ++i)
+    {
+        shape_functions[i] = Polynomials::make_poly(
+            LinAlg::linear_solve(terms_matrix, LinAlg::canonical<sizeof...(Constraints)>(i)).data,
+            Polynomials::PowersList<Powers...>{});
+    }
+
+    return shape_functions;
 }
 
 /*!
@@ -209,49 +224,18 @@ constexpr auto derive_shape_functions(ShapeFunctionForm<Powers...>, typeconst_li
 template <class... Ns>
 struct EvaluateAt
 {
+    std::tuple<Ns...> evaluation_point;
     template <class Powers>
     constexpr auto operator()(Powers) const noexcept
     {
         return Polynomials::make_poly(
-            std::tuple(1), Polynomials::PowersList<Powers>{})(Ns()...);
+            std::tuple(Rationals::rational<1>), Polynomials::PowersList<Powers>{})(evaluation_point);
     }
+
+    constexpr EvaluateAt(Ns &&...xs) : evaluation_point(std::forward<Ns>(xs)...) {}
+
+    constexpr EvaluateAt(const Ns &...xs) : evaluation_point(xs...) {}
 };
-
-// Helper function to check types of coordinate variables.
-namespace
-{
-
-template <class Coord, class... Coords>
-constexpr bool check_coords() noexcept
-{
-    constexpr bool is_coord = Rationals::is_rational<Coord> || is_intgr_constant<Coord>;
-    if constexpr (sizeof...(Coords) == 0)
-    {
-        return is_coord;
-    }
-    else
-    {
-        return is_coord && check_coords<Coords...>();
-    }
-}
-
-} // namespace
-
-/*!
- * @brief Construct an instance of EvaluateAt given arguments by value
- *
- * Rather than the unwieldy syntax `EvaluateAt<decltype(Ns)...>{}`, use this
- * helper function to construct the instance when given `Ns` by value instead
- * of as types.
- *
- * @see EvaluateAt
- */
-template <class... Ns>
-constexpr auto evaluate_at(Ns...) noexcept
-{
-    static_assert(check_coords<Ns...>(), "All coordinates should be rationals or integral_constants");
-    return EvaluateAt<Ns...>();
-}
 
 /*!
  * @brief Functor representing a partial derivative value as DOF
@@ -270,57 +254,42 @@ constexpr auto evaluate_at(Ns...) noexcept
  * @see partial_at
  * @see derive_shape_functions
  */
-template <class CoordList, auto I, auto... Is>
-class PartialAt
+template <std::size_t I, std::size_t... Is>
+struct Partial
 {
-  public:
-    template <class Powers>
-    constexpr auto operator()(Powers) const noexcept
+    template <class... Ts>
+    struct At
     {
-        constexpr auto t = take_partials<I, Is...>(Powers());
-        return t(instantiate_tuple(CoordList()));
-    }
+        constexpr At(Ts &&...xs) : evaluation_point(std::forward<Ts>(xs)...) {}
 
-  private:
-    template <auto J, auto... Js, class Powers>
-    static constexpr auto take_partials(Powers) noexcept
-    {
-        constexpr auto first_partial = partial<J>(
-            Polynomials::make_poly(std::tuple(1), Polynomials::PowersList<Powers>{}));
+        constexpr At(const Ts &...xs) : evaluation_point(xs...) {}
 
-        if constexpr (sizeof...(Js) == 0)
+        template <class Powers>
+        constexpr auto operator()(Powers) const noexcept
         {
-            return first_partial;
+            return take_partials<I, Is...>(Polynomials::make_poly(
+                std::tuple(Rationals::rational<1>), Polynomials::PowersList<Powers>{}))(evaluation_point);
         }
-        else
-        {
-            return first_partial.coeff() * take_partials<Js...>(first_partial.powers());
-        }
-    }
 
-    template <class... Coords>
-    static constexpr auto instantiate_tuple(typeconst_list<Coords...>) noexcept
-    {
-        return std::tuple(Coords()...);
-    }
+      private:
+        template <auto J, auto... Js, class Powers>
+        constexpr static auto
+        take_partials(const Polynomials::Polynomial<Rationals::Rational, Powers> &p) noexcept
+        {
+            auto first_partial = p.template partial<J>();
+
+            if constexpr (sizeof...(Js) == 0)
+            {
+                return first_partial;
+            }
+            else
+            {
+                return take_partials<Js...>(first_partial);
+            }
+        }
+        std::tuple<Ts...> evaluation_point;
+    };
 };
-
-/*!
- * @brief Helper to construct `PartialAt` instance correctly.
- *
- * Use `partial_at<I, Is...>(coords...)` to construct a `PartialAt` instance
- * representing a constraint on the value of the partial derivative with
- * respect to the variables indexed by `(I, Is...)` at the point in `R^n`
- * given by `(coords...)`. For example, a constraint on the cross derivative
- * `\frac{\partial^2 f}{\partial x \partial y}` at the origin can be
- * constructed using `partial_at<0, 1>(Rationals::rational<0>, Rationals::rational<0>)`.
- */
-template <auto I, auto... Is, class... Coords>
-constexpr auto partial_at(Coords...) noexcept
-{
-    static_assert(check_coords<Coords...>(), "All coordinates should be rationals or integral_constants");
-    return PartialAt<typeconst_list<Coords...>, I, Is...>();
-}
 
 /********************************************************************************
  * Test derivation of shape functions given "control points" and a form for the
@@ -330,9 +299,9 @@ constexpr auto partial_at(Coords...) noexcept
 #ifdef DOCTEST_LIBRARY_INCLUDED
 
 using namespace Rationals;
-using Polynomials::Powers;
+using namespace Polynomials;
 
-TEST_CASE("[Galerkin::Elements] Test powers_up_to")
+TEST_CASE("[Elements] Test powers_up_to")
 {
     constexpr auto powers = powers_up_to(intgr_constant<1>, intgr_constant<1>);
     REQUIRE(std::is_same_v<
@@ -340,137 +309,112 @@ TEST_CASE("[Galerkin::Elements] Test powers_up_to")
             const ShapeFunctionForm<Powers<0, 0>, Powers<0, 1>, Powers<1, 0>, Powers<1, 1>>>);
 }
 
-TEST_CASE("[Galerkin::Elements] Deriving one-dimensional shape functions")
+TEST_CASE("[Elements] Deriving shape functions")
 {
     SUBCASE("Test for a first order element")
     {
         // Shape function has the form ax + b.
-        constexpr auto form = make_form(Powers<1>{}, Powers<0>{});
+        constexpr auto form = PowersList<Powers<1>, Powers<0>>{};
 
         // Constraints are the function values at -1, 1.
-        constexpr auto constraints = make_list(evaluate_at(rational<-1>), evaluate_at(rational<1>));
+        constexpr auto constraints = std::tuple(EvaluateAt(rational<-1>), EvaluateAt(rational<1>));
 
         constexpr auto fns = derive_shape_functions(form, constraints);
 
         REQUIRE(
-            get<0>(fns) == metanomial(
-                               term(-rational<1, 2>, powers(intgr_constant<1>)),
-                               term(rational<1, 2>, powers(intgr_constant<0>))));
+            get<0>(fns) ==
+            make_poly(std::tuple(-rational<1, 2>, rational<1, 2>), PowersList<Powers<1>, Powers<0>>{}));
+
         REQUIRE(
-            get<1>(fns) == metanomial(
-                               term(rational<1, 2>, powers(intgr_constant<1>)),
-                               term(rational<1, 2>, powers(intgr_constant<0>))));
+            get<1>(fns) ==
+            make_poly(std::tuple(rational<1, 2>, rational<1, 2>), PowersList<Powers<1>, Powers<0>>{}));
     }
-} /*
+
     SUBCASE("Test for a second order element")
     {
-        constexpr auto form =
-            make_form(powers(intgr_constant<2>), powers(intgr_constant<1>), powers(intgr_constant<0>));
+        constexpr auto form = PowersList<Powers<2>, Powers<1>, Powers<0>>{};
 
         constexpr auto constraints =
-            make_list(evaluate_at(rational<-1>), evaluate_at(rational<0>), evaluate_at(rational<1>));
-
+            std::tuple(EvaluateAt(rational<-1>), EvaluateAt(rational<0>), EvaluateAt(rational<1>));
         constexpr auto fns = derive_shape_functions(form, constraints);
 
         REQUIRE(
-            get<0>(fns) == metanomial(
-                               term(rational<1, 2>, powers(intgr_constant<2>)),
-                               term(-rational<1, 2>, powers(intgr_constant<1>))));
+            get<0>(fns) == make_poly(
+                               std::tuple(rational<0>, rational<-1, 2>, rational<1, 2>),
+                               PowersList<Powers<0>, Powers<1>, Powers<2>>{}));
 
         REQUIRE(
-            get<1>(fns) == metanomial(
-                               term(-rational<1>, powers(intgr_constant<2>)),
-                               term(rational<1>, powers(intgr_constant<0>))));
+            get<1>(fns) == make_poly(
+                               std::tuple(rational<1>, rational<0>, rational<-1>),
+                               PowersList<Powers<0>, Powers<1>, Powers<2>>{}));
 
         REQUIRE(
-            get<2>(fns) == metanomial(
-                               term(rational<1, 2>, powers(intgr_constant<2>)),
-                               term(rational<1, 2>, powers(intgr_constant<1>))));
+            get<2>(fns) == make_poly(
+                               std::tuple(rational<0>, rational<1, 2>, rational<1, 2>),
+                               PowersList<Powers<0>, Powers<1>, Powers<2>>{}));
     }
 
     SUBCASE("Test for a 3rd-order element with derivative DOF's")
     {
-        constexpr auto form = make_form(
-            powers(intgr_constant<3>), powers(intgr_constant<2>), powers(intgr_constant<1>),
-            powers(intgr_constant<0>));
+        constexpr auto form = PowersList<Powers<3>, Powers<2>, Powers<1>, Powers<0>>{};
 
-        constexpr auto constraints = make_list(
-            evaluate_at(rational<-1>), evaluate_at(rational<1>), partial_at<0>(rational<-1>),
-            partial_at<0>(rational<1>));
+        constexpr auto constraints = std::tuple(
+            EvaluateAt(rational<-1>), EvaluateAt(rational<1>), Partial<0>::At(rational<-1>),
+            Partial<0>::At(rational<1>));
 
         constexpr auto fns = derive_shape_functions(form, constraints);
 
         REQUIRE(
-            get<0>(fns) == metanomial(
-                               term(rational<1, 4>, powers(intgr_constant<3>)),
-                               term(-rational<3, 4>, powers(intgr_constant<1>)),
-                               term(rational<1, 2>, powers(intgr_constant<0>))));
+            fns[0] == make_poly(
+                          std::tuple(rational<1, 2>, -rational<3, 4>, rational<0>, rational<1, 4>),
+                          PowersList<Powers<0>, Powers<1>, Powers<2>, Powers<3>>{}));
 
         REQUIRE(
-            get<1>(fns) == metanomial(
-                               term(-rational<1, 4>, powers(intgr_constant<3>)),
-                               term(rational<3, 4>, powers(intgr_constant<1>)),
-                               term(rational<1, 2>, powers(intgr_constant<0>))));
+            fns[1] == make_poly(
+                          std::tuple(-rational<1, 4>, rational<0>, rational<3, 4>, rational<1, 2>),
+                          PowersList<Powers<3>, Powers<2>, Powers<1>, Powers<0>>{}));
 
         REQUIRE(
-            get<2>(fns) == metanomial(
-                               term(rational<1, 4>, powers(intgr_constant<3>)),
-                               term(-rational<1, 4>, powers(intgr_constant<2>)),
-                               term(-rational<1, 4>, powers(intgr_constant<1>)),
-                               term(rational<1, 4>, powers(intgr_constant<0>))));
+            fns[2] == make_poly(
+                          std::tuple(rational<1, 4>, -rational<1, 4>, -rational<1, 4>, rational<1, 4>),
+                          PowersList<Powers<0>, Powers<1>, Powers<2>, Powers<3>>{}));
 
         REQUIRE(
-            get<3>(fns) == metanomial(
-                               term(rational<1, 4>, powers(intgr_constant<3>)),
-                               term(rational<1, 4>, powers(intgr_constant<2>)),
-                               term(-rational<1, 4>, powers(intgr_constant<1>)),
-                               term(-rational<1, 4>, powers(intgr_constant<0>))));
+            fns[3] == make_poly(
+                          std::tuple(-rational<1, 4>, -rational<1, 4>, rational<1, 4>, rational<1, 4>),
+                          PowersList<Powers<0>, Powers<1>, Powers<2>, Powers<3>>{}));
     }
 }
 
-TEST_CASE("[Galerkin::Elements] Deriving two-dimensional shape functions")
+TEST_CASE("[Elements] Deriving bilinear shape functions")
 {
-    SUBCASE("Test derivation of bilinear shape functions on a quadrilateral")
-    {
-        constexpr auto form = make_form(
-            powers(intgr_constant<1>, intgr_constant<1>), powers(intgr_constant<1>, intgr_constant<0>),
-            powers(intgr_constant<0>, intgr_constant<1>), powers(intgr_constant<0>, intgr_constant<0>));
+    constexpr auto form = PowersList<Powers<1, 1>, Powers<1, 0>, Powers<0, 1>, Powers<0, 0>>{};
+    constexpr auto constraints = std::tuple(
+        EvaluateAt(rational<-1>, rational<-1>), EvaluateAt(rational<-1>, rational<1>),
+        EvaluateAt(rational<1>, rational<1>), EvaluateAt(rational<1>, rational<-1>));
 
-        constexpr auto constraints = make_list(
-            evaluate_at(rational<-1>, rational<-1>), evaluate_at(rational<-1>, rational<1>),
-            evaluate_at(rational<1>, rational<1>), evaluate_at(rational<1>, rational<-1>));
+    constexpr auto fns = derive_shape_functions(form, constraints);
 
-        constexpr auto fns = derive_shape_functions(form, constraints);
+    REQUIRE(
+        fns[0] == make_poly(
+                      std::tuple(rational<1, 4>, -rational<1, 4>, -rational<1, 4>, rational<1, 4>),
+                      PowersList<Powers<1, 1>, Powers<1, 0>, Powers<0, 1>, Powers<0, 0>>{}));
 
-        REQUIRE(
-            get<0>(fns) == metanomial(
-                               term(rational<1, 4>, powers(intgr_constant<1>, intgr_constant<1>)),
-                               term(-rational<1, 4>, powers(intgr_constant<1>, intgr_constant<0>)),
-                               term(-rational<1, 4>, powers(intgr_constant<0>, intgr_constant<1>)),
-                               term(rational<1, 4>, powers(intgr_constant<0>, intgr_constant<0>))));
+    REQUIRE(
+        fns[1] == make_poly(
+                      std::tuple(-rational<1, 4>, -rational<1, 4>, rational<1, 4>, rational<1, 4>),
+                      PowersList<Powers<1, 1>, Powers<1, 0>, Powers<0, 1>, Powers<0, 0>>{}));
 
-        REQUIRE(
-            get<1>(fns) == metanomial(
-                               term(-rational<1, 4>, powers(intgr_constant<1>, intgr_constant<1>)),
-                               term(-rational<1, 4>, powers(intgr_constant<1>, intgr_constant<0>)),
-                               term(rational<1, 4>, powers(intgr_constant<0>, intgr_constant<1>)),
-                               term(rational<1, 4>, powers(intgr_constant<0>, intgr_constant<0>))));
-
-        REQUIRE(
-            get<2>(fns) == metanomial(
-                               term(rational<1, 4>, powers(intgr_constant<1>, intgr_constant<1>)),
-                               term(rational<1, 4>, powers(intgr_constant<1>, intgr_constant<0>)),
-                               term(rational<1, 4>, powers(intgr_constant<0>, intgr_constant<1>)),
-                               term(rational<1, 4>, powers(intgr_constant<0>, intgr_constant<0>))));
-
-        REQUIRE(
-            get<3>(fns) == metanomial(
-                               term(-rational<1, 4>, powers(intgr_constant<1>, intgr_constant<1>)),
-                               term(rational<1, 4>, powers(intgr_constant<1>, intgr_constant<0>)),
-                               term(-rational<1, 4>, powers(intgr_constant<0>, intgr_constant<1>)),
-                               term(rational<1, 4>, powers(intgr_constant<0>, intgr_constant<0>))));
-    }
-} */
+    REQUIRE(
+        fns[2] == make_poly(
+                      std::tuple(rational<1, 4>, rational<1, 4>, rational<1, 4>, rational<1, 4>),
+                      PowersList<Powers<1, 1>, Powers<1, 0>, Powers<0, 1>, Powers<0, 0>>{}));
+    
+    REQUIRE(
+        fns[3] == make_poly(
+            std::tuple(-rational<1, 4>, rational<1, 4>, -rational<1, 4>, rational<1, 4>),
+            PowersList<Powers<1, 1>, Powers<1, 0>, Powers<0, 1>, Powers<0, 0>>{}));
+} // TEST_CASE
 
 #endif /* DOCTEST_LIBRARY_INCLUDED */
 

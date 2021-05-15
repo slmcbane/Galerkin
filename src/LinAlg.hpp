@@ -45,6 +45,8 @@ struct Matrix
     constexpr Matrix(const Matrix &other) : data{other.data} {}
 
     constexpr Matrix() : data() {}
+
+    constexpr Matrix &operator=(const Matrix &other) = default;
 };
 
 template <std::size_t N>
@@ -67,19 +69,20 @@ struct Vector
         xs[m] = Rationals::Rational(val);
         return Vector(xs);
     }
+
+    constexpr Vector &operator=(const Vector &other) = default;
 };
 
-template <auto I, auto N>
-constexpr auto canonical() noexcept
+template <auto N>
+constexpr auto canonical(std::size_t i) noexcept
 {
-    static_assert(N >= 0 && I < N);
     if constexpr (N == 0)
     {
         return Vector<0>();
     }
     else
     {
-        return Vector<N>().set_entry(I, 1);
+        return Vector<N>().set_entry(i, 1);
     }
 }
 
@@ -92,17 +95,17 @@ constexpr auto canonical() noexcept
 
 TEST_CASE("[LinAlg] Canonical basis vectors")
 {
-    constexpr auto c0 = LinAlg::canonical<0, 3>();
+    constexpr auto c0 = LinAlg::canonical<3>(0);
     REQUIRE(c0(0) == Rationals::rational<1>);
     REQUIRE(c0(1) == Rationals::rational<0>);
     REQUIRE(c0(2) == c0(1));
 
-    constexpr auto c1 = LinAlg::canonical<1, 3>();
+    constexpr auto c1 = LinAlg::canonical<3>(1);
     REQUIRE(c1(0) == c0(1));
     REQUIRE(c1(1) == c0(0));
     REQUIRE(c1(2) == c0(1));
 
-    constexpr auto c2 = LinAlg::canonical<2, 3>();
+    constexpr auto c2 = LinAlg::canonical<3>(2);
     REQUIRE(c2(0) == c0(1));
     REQUIRE(c2(1) == c0(1));
     REQUIRE(c2(2) == c0(0));

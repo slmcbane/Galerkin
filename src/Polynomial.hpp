@@ -67,7 +67,7 @@ constexpr auto eval_impl(
     const std::array<T, sizeof...(Is)> &coeffs, std::index_sequence<Is...>, PowersList<Ps...>,
     const Xs &...xs) noexcept
 {
-    //using result_type = std::decay_t<decltype(std::get<0>(std::tuple(raise(Ps{}, xs...)...)))>;
+    // using result_type = std::decay_t<decltype(std::get<0>(std::tuple(raise(Ps{}, xs...)...)))>;
     return ((raise(Ps{}, xs...) * coeffs[Is]) + ...);
 }
 
@@ -80,8 +80,6 @@ class Polynomial
 
     constexpr Polynomial(const std::array<T, sizeof...(Ps)> &cs) noexcept : m_coeffs(cs) {}
 
-    constexpr Polynomial() noexcept : m_coeffs{T(0)} {}
-
     template <class... Ts, class = std::enable_if_t<sizeof...(Ts) == sizeof...(Ps)>>
     constexpr Polynomial(const std::tuple<Ts...> &cs) noexcept : m_coeffs{detail::to_array<T>(cs)}
     {
@@ -91,15 +89,37 @@ class Polynomial
 
     template <std::size_t... Is, unsigned... As, class... Qs>
     constexpr auto partial_impl(
-        std::index_sequence<Is...>, std::integer_sequence<unsigned, As...>, PowersList<Qs...>) const noexcept
+        std::index_sequence<Is...>, std::integer_sequence<unsigned, As...>,
+        PowersList<Qs...>) const noexcept
     {
-        const auto new_coeffs = std::array{(m_coeffs[Is] * As)...};
-        return make_poly(new_coeffs, PowersList<Qs...>{});
+        if constexpr (sizeof...(Is) == 0)
+        {
+            return Polynomial();
+        }
+        else
+        {
+            const auto new_coeffs = std::array{(m_coeffs[Is] * As)...};
+            return make_poly(new_coeffs, PowersList<Qs...>{});
+        }
     }
 
   public:
     constexpr const auto &coeffs() const noexcept { return m_coeffs; }
     static constexpr auto num_terms = sizeof...(Ps);
+
+    constexpr Polynomial() noexcept : m_coeffs{T(0)} {}
+
+    constexpr bool operator==(const Polynomial<T, Ps...> &other) const noexcept
+    {
+        for (unsigned i = 0; i < sizeof...(Ps); ++i)
+        {
+            if (!(other.m_coeffs[i] == m_coeffs[i]))
+            {
+                return false;
+            }
+        }
+        return true;
+    }
 
     constexpr Polynomial<T, Ps...> operator+(const Polynomial<T, Ps...> &other) const noexcept
     {
@@ -112,8 +132,7 @@ class Polynomial
     }
 
     template <class U>
-    constexpr Polynomial<std::common_type_t<T, U>, Ps...>
-    operator*(U x) const noexcept
+    constexpr Polynomial<std::common_type_t<T, U>, Ps...> operator*(U x) const noexcept
     {
         auto new_coeffs = detail::initialize_array<std::common_type_t<T, U>, sizeof...(Ps)>();
         for (unsigned i = 0; i < sizeof...(Ps); ++i)
@@ -124,8 +143,7 @@ class Polynomial
     }
 
     template <class U>
-    constexpr Polynomial<std::common_type_t<T, U>, Ps...>
-    operator/(U x) const noexcept
+    constexpr Polynomial<std::common_type_t<T, U>, Ps...> operator/(U x) const noexcept
     {
         auto new_coeffs = detail::initialize_array<std::common_type_t<T, U>, sizeof...(Ps)>();
         for (unsigned i = 0; i < sizeof...(Ps); ++i)
