@@ -166,15 +166,15 @@ struct ElementBase
             form(get<0>(Derived::basis), get<0>(Derived::basis)), order));
         if constexpr (is_symmetric<Form>)
         {
-            constexpr auto N = Derived::basis.count;
+            constexpr auto N = Derived::basis_size;
             BasicSymmetricMatrix<eltype, N> mat;
 
-            static_for<0, Derived::basis.count, 1>(
+            static_for<0, Derived::basis.size(), 1>(
                 [&](auto i)
                 {
                     // See comment below in else clause
                     constexpr auto index1 = i();
-                    static_for<index1, Derived::basis.count, 1>(
+                    static_for<index1, Derived::basis_size, 1>(
                         [&](auto j)
                         {
                             mat(index1, j()) = integrate(
@@ -190,14 +190,14 @@ struct ElementBase
         }
         else
         {
-            BasicMatrix<eltype, Derived::basis.count, Derived::basis.count> mat;
-            static_for<0, Derived::basis.count, 1>(
+            BasicMatrix<eltype, Derived::basis_size, Derived::basis_size> mat;
+            static_for<0, Derived::basis_size, 1>(
                 [&](auto i)
                 {
                     // Written this way triggers an internal compiler error, instead of
                     // an (incorrect) error about constexpr
                     constexpr auto index1 = i();
-                    static_for<0, Derived::basis.count, 1>(
+                    static_for<0, Derived::basis_size, 1>(
                         [&](auto j)
                         {
                             mat(index1, j()) = integrate(

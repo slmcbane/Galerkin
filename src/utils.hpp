@@ -13,6 +13,7 @@
  * @author Sean McBane <sean.mcbane@protonmail.com>
  */
 
+#include <array>
 #include <functional>
 #include <tuple>
 #include <type_traits>
@@ -310,8 +311,9 @@ constexpr bool is_intgr_constant = false;
 template <auto v>
 constexpr bool is_intgr_constant<std::integral_constant<decltype(v), v>> = true;
 
-template <class Lower, class Upper, auto N>
-constexpr auto evenly_spaced(Lower, Upper, std::integral_constant<decltype(N), N>) noexcept
+/*
+template <class Lower, class Upper, std::size_t N>
+constexpr auto evenly_spaced(Lower, Upper, std::integral_constant<std::size_t, N>) noexcept
 {
     constexpr auto delta = (Upper{} - Lower{}) / intgr_constant<N>;
     return static_reduce<0, N+1, 1>(
@@ -319,6 +321,20 @@ constexpr auto evenly_spaced(Lower, Upper, std::integral_constant<decltype(N), N
         typeconst_list<>{},
         [](auto lst, auto x) { return lst.append(make_list(x)); }
     );
+} */
+
+template <std::size_t N, class T>
+constexpr auto evenly_spaced(const T &lower, const T &upper)
+{
+    std::array<T, N+1> result = std::array<T, N+1>{T(0)};
+    result[0] = lower;
+    result[N] = upper;
+    for (unsigned i = 1; i < N; ++i)
+    {
+        result[i] = result[i-1] + (upper - lower) / N;
+    }
+
+    return result;
 }
 
 /// Get the I-th element (0-based) from the list given.

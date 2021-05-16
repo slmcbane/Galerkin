@@ -70,10 +70,10 @@ constexpr auto powers_count(ShapeFunctionForm<Ps...>) noexcept
  * powers.
  */
 template <class... Ps>
-constexpr auto to_form(typeconst_list<Ps...>) noexcept
+constexpr auto to_powerslist(typeconst_list<Ps...>) noexcept
 {
     static_assert(check_powers<Ps...>(), "All arguments to to_form should be 'Powers' objects");
-    return ShapeFunctionForm<Ps...>();
+    return Polynomials::PowersList<Ps...>();
 }
 
 /*!
@@ -87,7 +87,7 @@ template <class... Powers>
 constexpr auto make_form(Powers...) noexcept
 {
     static_assert(check_powers<Powers...>(), "All arguments to make_form should be 'Powers' objects");
-    return to_form(ShapeFunctionForm<Powers...>().sorted().unique());
+    return to_powerslist(ShapeFunctionForm<Powers...>().sorted().unique());
 }
 
 /*!
@@ -113,7 +113,7 @@ constexpr auto concatenate_powers(Polynomials::Powers<Is...>, Polynomials::Power
  */
 template <auto I, auto... Is>
 constexpr auto
-powers_up_to(std::integral_constant<decltype(I), I>, std::integral_constant<decltype(Is), Is>...) noexcept
+powers_up_to() noexcept
 {
     static_assert(I >= 0);
     if constexpr (sizeof...(Is) == 0)
@@ -121,13 +121,13 @@ powers_up_to(std::integral_constant<decltype(I), I>, std::integral_constant<decl
         constexpr auto lst = static_reduce<0, I + 1, 1>(
             [](auto i) { return i; }, typeconst_list<>{},
             [](auto l, auto i) { return l.append(typeconst_list<Polynomials::Powers<i()>>{}); });
-        return to_form(lst);
+        return lst;
     }
     else
     {
-        constexpr auto lst = powers_up_to(intgr_constant<I>);
-        constexpr auto tails = powers_up_to(intgr_constant<Is>...);
-        constexpr auto power_list = static_reduce<0, powers_count(lst), 1>(
+        constexpr auto lst = powers_up_to<I>();
+        constexpr auto tails = powers_up_to<Is...>();
+        constexpr auto power_list = static_reduce<0, lst.count, 1>(
             [=](auto i) {
                 constexpr auto index1 = i();
                 return static_reduce<0, tails.count, 1>(
@@ -136,7 +136,7 @@ powers_up_to(std::integral_constant<decltype(I), I>, std::integral_constant<decl
                     [](auto l1, auto pow) { return l1.append(typeconst_list<decltype(pow)>{}); });
             },
             typeconst_list<>{}, [](auto l1, auto l2) { return l1.append(l2); });
-        return to_form(power_list);
+        return power_list;
     }
 }
 
@@ -205,6 +205,13 @@ constexpr auto derive_shape_functions(
     }
 
     return shape_functions;
+}
+
+template <class... Powers, class... Constraints>
+constexpr auto derive_shape_functions(
+    typeconst_list<Powers...>, const std::tuple<Constraints...> &constraints) noexcept
+{
+    return derive_shape_functions(Polynomials::PowersList<Powers...>{}, constraints);
 }
 
 /*!
@@ -303,10 +310,10 @@ using namespace Polynomials;
 
 TEST_CASE("[Elements] Test powers_up_to")
 {
-    constexpr auto powers = powers_up_to(intgr_constant<1>, intgr_constant<1>);
+    constexpr auto powers = powers_up_to<1, 1>();
     REQUIRE(std::is_same_v<
             decltype(powers),
-            const ShapeFunctionForm<Powers<0, 0>, Powers<0, 1>, Powers<1, 0>, Powers<1, 1>>>);
+            const typeconst_list<Powers<0, 0>, Powers<0, 1>, Powers<1, 0>, Powers<1, 1>>>);
 }
 
 TEST_CASE("[Elements] Deriving shape functions")

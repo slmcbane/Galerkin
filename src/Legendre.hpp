@@ -155,7 +155,7 @@ TEST_CASE("Find roots of Legendre polynomials")
     REQUIRE(roots<double, 5>[4] == doctest::Approx(std::sqrt(5 + 2 * std::sqrt(10.0 / 7)) / 3));
 }
 
-#endif /* DOCTEST_LIBRARY_INCLUDED *
+#endif /* DOCTEST_LIBRARY_INCLUDED */
 
 /********************************************************************************
  *******************************************************************************/
