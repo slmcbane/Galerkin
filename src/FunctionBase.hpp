@@ -105,7 +105,7 @@ public:
     template <auto I>
     constexpr auto partial() const noexcept
     {
-        return FunctionNegation(Galerkin::partial<I>(m_f));
+        return FunctionNegation<std::decay_t<decltype(Galerkin::partial<I>(m_f))>>(Galerkin::partial<I>(m_f));
     }
 
     template <class... T>
