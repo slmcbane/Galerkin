@@ -72,6 +72,11 @@ constexpr auto eval_impl(
     return ((raise(Ps{}, xs...) * coeffs[Is]) + ...);
 }
 
+template <class F>
+struct is_function_base : public std::is_base_of<Functions::FunctionBase<F>, F>
+{
+};
+
 } // namespace detail
 
 template <class T, class... Ps>
@@ -104,6 +109,16 @@ class Polynomial : public Functions::FunctionBase<Polynomial<T, Ps...>>
         }
     }
 
+    template <class U>
+    struct is_poly : std::false_type
+    {
+    };
+
+    template <class U, class... Ps2>
+    struct is_poly<Polynomial<U, Ps2...>> : std::true_type
+    {
+    };
+
   public:
     constexpr const auto &coeffs() const noexcept { return m_coeffs; }
     static constexpr auto num_terms = sizeof...(Ps);
@@ -122,7 +137,8 @@ class Polynomial : public Functions::FunctionBase<Polynomial<T, Ps...>>
         return true;
     }
 
-    constexpr Polynomial<T, Ps...> operator+(const Polynomial<T, Ps...> &other) const noexcept
+    template <class U, class = std::enable_if_t<std::is_same_v<U, Polynomial<T, Ps...>>>>
+    constexpr Polynomial<T, Ps...> operator+(const U &other) const noexcept
     {
         Polynomial<T, Ps...> result;
         for (unsigned i = 0; i < sizeof...(Ps); ++i)
@@ -132,30 +148,101 @@ class Polynomial : public Functions::FunctionBase<Polynomial<T, Ps...>>
         return result;
     }
 
-    template <class U>
-    constexpr Polynomial<std::common_type_t<T, U>, Ps...> operator*(U x) const noexcept
+    template <class U, class... Ps2>
+    constexpr auto operator+(const Polynomial<U, Ps2...> &other) const noexcept
     {
-        auto new_coeffs = detail::initialize_array<std::common_type_t<T, U>, sizeof...(Ps)>();
-        for (unsigned i = 0; i < sizeof...(Ps); ++i)
+        if constexpr (std::is_same_v<Polynomial<T, Ps...>, Polynomial<U, Ps2...>>)
         {
-            new_coeffs[i] = m_coeffs[i] * x;
+            Polynomial<T, Ps...> result;
+            for (unsigned i = 0; i < sizeof...(Ps); ++i)
+            {
+                result.m_coeffs[i] = m_coeffs[i] + other.m_coeffs[i];
+            }
+            return result;
         }
-        return make_poly(new_coeffs, PowersList<Ps...>{});
+        else
+        {
+            using V = std::common_type_t<T, U>;
+            auto coeffs = detail::initialize_array<V, sizeof...(Ps) + sizeof...(Ps2)>();
+            for (unsigned i = 0; i < sizeof...(Ps); ++i)
+            {
+                coeffs[i] = m_coeffs[i];
+            }
+            for (unsigned i = 0; i < sizeof...(Ps2); ++i)
+            {
+                coeffs[i + num_terms] = other.coeffs()[i];
+            }
+            return make_poly(coeffs, PowersList<Ps..., Ps2...>{});
+        }
     }
 
-    template <class F, class = std::enable_if_t<!std::is_same_v<F, Polynomial<T, Ps...>>>>
-    constexpr auto operator*(const Functions::FunctionBase<F> &f) const
+    template <class U, class = std::enable_if_t<!is_poly<U>::value>>
+    friend constexpr auto operator*(const Polynomial<T, Ps...> &p, const U &u)
     {
-        return Functions::FunctionBase<Polynomial<T, Ps...>>::operator*(static_cast<const F &>(f));
+        if constexpr (detail::is_function_base<U>::value)
+        {
+            return Functions::FunctionProduct(p, u);
+        }
+        else
+        {
+            using result_type = decltype(std::declval<T>() * std::declval<U>());
+            if constexpr (std::is_same_v<result_type, T>)
+            {
+                auto p2 = p;
+                p2 *= u;
+                return p2;
+            }
+            else
+            {
+                std::array<result_type, sizeof...(Ps)> coeffs =
+                    detail::initialize_array<result_type, sizeof...(Ps)>();
+                for (std::size_t i = 0; i < sizeof...(Ps); ++i)
+                {
+                    coeffs[i] = p.m_coeffs[i] * u;
+                }
+                return make_poly(coeffs, PowersList<Ps...>{});
+            }
+        }
     }
 
-    template <class F>
-    constexpr auto operator/(const Functions::FunctionBase<F> &f) const
+    template <class U, class = std::enable_if_t<!is_poly<U>::value>>
+    friend constexpr auto operator/(const Polynomial<T, Ps...> &p, const U &u)
     {
-        return Functions::FunctionBase<Polynomial<T, Ps...>>::operator/(static_cast<const F &>(f));
-    } 
+        if constexpr (detail::is_function_base<U>::value)
+        {
+            return Functions::FunctionQuotient(p, u);
+        }
+        else
+        {
+            using result_type = decltype(std::declval<T>() * std::declval<U>());
+            std::array<result_type, sizeof...(Ps)> coeffs =
+                detail::initialize_array<result_type, sizeof...(Ps)>();
+            for (std::size_t i = 0; i < sizeof...(Ps); ++i)
+            {
+                coeffs[i] = p.m_coeffs[i] / u;
+            }
+            return make_poly(coeffs, PowersList<Ps...>{});
+        }
+    }
 
-    template <class U>
+    template <
+        class F, class = std::enable_if_t<(!(is_poly<F>::value)) && detail::is_function_base<F>::value>>
+    friend constexpr auto operator+(const Polynomial<T, Ps...> &p, const F &f)
+    {
+        return Functions::FunctionProduct(p, f);
+    }
+
+    template <
+        class U,
+        class = std::enable_if_t<(!(is_poly<U>::value)) && (!(detail::is_function_base<U>::value))>>
+    friend constexpr auto operator*(const U &x, const Polynomial<T, Ps...> &p)
+    {
+        return p * x;
+    }
+
+    template <
+        class U,
+        class = std::enable_if_t<(!(is_poly<U>::value)) && (!(detail::is_function_base<U>::value))>>
     constexpr Polynomial<std::common_type_t<T, U>, Ps...> operator/(U x) const noexcept
     {
         auto new_coeffs = detail::initialize_array<std::common_type_t<T, U>, sizeof...(Ps)>();
@@ -300,7 +387,7 @@ constexpr auto make_poly(const C &coeffs, PowersList<Ps...>) noexcept
 }
 
 template <class T, class... Ps, class U, class... Qs>
-constexpr auto operator+(const Polynomial<T, Ps...> &p, const Polynomial<U, Qs...> &q) noexcept
+constexpr auto operator-(const Polynomial<T, Ps...> &p, const Polynomial<U, Qs...> &q) noexcept
 {
     using V = std::common_type_t<T, U>;
     auto coeffs = detail::initialize_array<V, sizeof...(Ps) + sizeof...(Qs)>();
@@ -310,7 +397,7 @@ constexpr auto operator+(const Polynomial<T, Ps...> &p, const Polynomial<U, Qs..
     }
     for (unsigned i = 0; i < sizeof...(Qs); ++i)
     {
-        coeffs[i + p.num_terms] = q.coeffs()[i];
+        coeffs[i + p.num_terms] = -q.coeffs()[i];
     }
     return make_poly(coeffs, PowersList<Ps..., Qs...>{});
 }
@@ -329,12 +416,6 @@ constexpr auto operator*(const Polynomial<T, Ps...> &p, const Polynomial<U, Qs..
     }
 
     return make_poly(coeffs, PowersList<Ps...>{} * PowersList<Qs...>{});
-}
-
-template <class T, class U, class... Ps>
-constexpr auto operator*(U x, const Polynomial<T, Ps...> &p) noexcept
-{
-    return p * x;
 }
 
 template <std::size_t I, class T, class... Ps>
@@ -545,10 +626,11 @@ TEST_CASE("Construct a polynomial with a coefficient tuple")
 
 TEST_CASE("Evaluating a multivariable polynomial")
 {
-    constexpr auto powers = PowersList<Powers<3, 0>, Powers<0, 3>, Powers<2, 1>, Powers<1, 2>,
-        Powers<2, 0>, Powers<0, 2>, Powers<1, 1>, Powers<1, 0>, Powers<0, 1>, Powers<0, 0>>{};
+    constexpr auto powers = PowersList<
+        Powers<3, 0>, Powers<0, 3>, Powers<2, 1>, Powers<1, 2>, Powers<2, 0>, Powers<0, 2>, Powers<1, 1>,
+        Powers<1, 0>, Powers<0, 1>, Powers<0, 0>>{};
 
-    constexpr std::array<int, powers.size> coeffs { 2, 1, -3, 4, 0, 5, 1, 1, 2, 1 };
+    constexpr std::array<int, powers.size> coeffs{2, 1, -3, 4, 0, 5, 1, 1, 2, 1};
 
     constexpr auto poly = make_poly(coeffs, powers);
 
@@ -565,8 +647,8 @@ TEST_CASE("Squaring a single-variable polynomial")
     constexpr auto poly2 = poly * poly;
 
     static_assert(std::is_same_v<
-        std::decay_t<decltype(poly2)>,
-        Polynomials::Polynomial<int, Powers<0>, Powers<1>, Powers<2>, Powers<3>, Powers<4>>>);
+                  std::decay_t<decltype(poly2)>,
+                  Polynomials::Polynomial<int, Powers<0>, Powers<1>, Powers<2>, Powers<3>, Powers<4>>>);
 
     REQUIRE(poly2.coeffs()[0] == 4);
     REQUIRE(poly2.coeffs()[1] == -4);
@@ -578,8 +660,8 @@ TEST_CASE("Squaring a single-variable polynomial")
 TEST_CASE("A more complicated, multi-variable test case")
 {
     constexpr auto powers = PowersList<Powers<0, 0>, Powers<0, 1>, Powers<1, 0>, Powers<1, 1>>{};
-    constexpr auto coeffs1 = std::array<int, 4>{ 2, 1, 2, 3 };
-    constexpr auto coeffs2 = std::array<int, 4>{ 4, 3, 2, 1 };
+    constexpr auto coeffs1 = std::array<int, 4>{2, 1, 2, 3};
+    constexpr auto coeffs2 = std::array<int, 4>{4, 3, 2, 1};
     constexpr auto poly1 = make_poly(coeffs1, powers);
     constexpr auto poly2 = make_poly(coeffs2, powers);
     constexpr auto result = poly1 * poly2;
@@ -642,8 +724,8 @@ TEST_CASE("Partial derivatives for a function of two variables")
 
     using T = decltype(std::declval<int>() * std::declval<unsigned>());
     static_assert(std::is_same_v<
-        std::remove_cv_t<decltype(d0poly)>,
-        Polynomial<T, Powers<0, 0>, Powers<0, 1>, Powers<0, 2>, Powers<1, 2>>>);
+                  std::remove_cv_t<decltype(d0poly)>,
+                  Polynomial<T, Powers<0, 0>, Powers<0, 1>, Powers<0, 2>, Powers<1, 2>>>);
 
     REQUIRE(d0poly.coeffs()[0] == 2);
     REQUIRE(d0poly.coeffs()[1] == 1);
@@ -652,8 +734,8 @@ TEST_CASE("Partial derivatives for a function of two variables")
 
     constexpr auto d1poly = partial<1>(poly);
     static_assert(std::is_same_v<
-        std::remove_cv_t<decltype(d1poly)>,
-        Polynomial<T, Powers<0, 0>, Powers<0, 1>, Powers<1, 0>, Powers<1, 1>, Powers<2, 1>>>);
+                  std::remove_cv_t<decltype(d1poly)>,
+                  Polynomial<T, Powers<0, 0>, Powers<0, 1>, Powers<1, 0>, Powers<1, 1>, Powers<2, 1>>>);
     REQUIRE(d1poly.coeffs()[0] == 2);
     REQUIRE(d1poly.coeffs()[1] == 2);
     REQUIRE(d1poly.coeffs()[2] == 1);
