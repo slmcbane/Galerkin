@@ -331,6 +331,12 @@ constexpr auto operator*(const Polynomial<T, Ps...> &p, const Polynomial<U, Qs..
     return make_poly(coeffs, PowersList<Ps...>{} * PowersList<Qs...>{});
 }
 
+template <class T, class U, class... Ps>
+constexpr auto operator*(U x, const Polynomial<T, Ps...> &p) noexcept
+{
+    return p * x;
+}
+
 template <std::size_t I, class T, class... Ps>
 constexpr auto partial(const Polynomial<T, Ps...> &p) noexcept
 {
