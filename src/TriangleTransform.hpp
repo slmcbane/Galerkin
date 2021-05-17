@@ -143,11 +143,17 @@ class TriangleTransform : public TransformBase<2, TriangleTransform<T>>
     template <int I, class F>
     constexpr auto quadrature(F &&f) const noexcept
     {
+        return Quadrature::integrate(std::forward<F>(f), quadrature_rule<I>());
+    }
+
+    template <int Order>
+    constexpr static auto quadrature_rule() noexcept
+    {
         // To integrate a polynomial with total degree D, we need the number of
         // quadrature points N to satisfy 2N - 2 >= D. Adding D % 2 to the
         // computed N = (D+2) / 2 corrects for the case where D is odd.
-        constexpr auto npoints = (I + 2) / 2 + I % 2 > 0 ? (I + 2) / 2 + I % 2 : 1;
-        return Quadrature::integrate(std::forward<F>(f), Quadrature::triangle_rule<T, npoints>);
+        constexpr auto npoints = (Order + 2) / 2 + Order % 2 > 0 ? (Order + 2) / 2 + Order % 2 : 1;
+        return Quadrature::triangle_rule<T, npoints>;
     }
 
   private:

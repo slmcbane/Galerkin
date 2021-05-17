@@ -208,14 +208,20 @@ class BilinearQuadTransform : public TransformBase<2, BilinearQuadTransform<T>>
     template <int I, class F>
     constexpr auto quadrature(F &&f) const noexcept
     {
-        constexpr auto npoints = (I + 1) / 2 + (I - 1) % 2;
+        return Quadrature::box_integrate<2>(std::forward<F>(f), quadrature_rule<I>());
+    }
+
+    template <int Order>
+    constexpr static auto quadrature_rule() noexcept
+    {
+        constexpr auto npoints = (Order + 1) / 2 + (Order - 1) % 2;
         if constexpr (npoints <= 0)
         {
-            return Quadrature::box_integrate<2>(std::forward<F>(f), Quadrature::legendre_rule<T, 1>);
+            return Quadrature::legendre_rule<T, 1>;
         }
         else
         {
-            return Quadrature::box_integrate<2>(std::forward<F>(f), Quadrature::legendre_rule<T, npoints>);
+            return Quadrature::legendre_rule<T, npoints>;
         }
     }
 
