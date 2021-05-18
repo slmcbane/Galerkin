@@ -240,19 +240,6 @@ class Polynomial : public Functions::FunctionBase<Polynomial<T, Ps...>>
         return p * x;
     }
 
-    template <
-        class U,
-        class = std::enable_if_t<(!(is_poly<U>::value)) && (!(detail::is_function_base<U>::value))>>
-    constexpr Polynomial<std::common_type_t<T, U>, Ps...> operator/(U x) const noexcept
-    {
-        auto new_coeffs = detail::initialize_array<std::common_type_t<T, U>, sizeof...(Ps)>();
-        for (unsigned i = 0; i < sizeof...(Ps); ++i)
-        {
-            new_coeffs[i] = m_coeffs[i] / x;
-        }
-        return make_poly(new_coeffs, PowersList<Ps...>{});
-    }
-
     template <class U>
     constexpr Polynomial<T, Ps...> &operator*=(U x)
     {
