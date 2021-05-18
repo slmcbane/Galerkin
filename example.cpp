@@ -2,8 +2,8 @@
 #include "src/Elements.hpp"
 #include "src/TriangleTransform.hpp"
 
-using Galerkin::Elements::evaluate_at;
-using Galerkin::Metanomials::Powers;
+using Galerkin::Elements::EvaluateAt;
+using Galerkin::Polynomials::Powers;
 using Galerkin::Rationals::rational;
 
 class TetElement;
@@ -27,10 +27,12 @@ public:
     static constexpr auto basis = Galerkin::Elements::derive_shape_functions(
         Galerkin::Elements::make_form(
             Powers<1, 0>{}, Powers<0, 1>{}, Powers<0, 0>{}),
-        Galerkin::make_list(
-            evaluate_at(rational<-1>, rational<-1>),
-            evaluate_at(rational<-1>, rational<1>),
-            evaluate_at(rational<1>, rational<-1>)));
+        std::tuple(
+            EvaluateAt(rational<-1>, rational<-1>),
+            EvaluateAt(rational<-1>, rational<1>),
+            EvaluateAt(rational<1>, rational<-1>)));
+
+    static constexpr auto basis_size = basis.size();
 
     constexpr auto &coordinate_map() const noexcept { return m_trans; }
 
