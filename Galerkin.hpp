@@ -10,5 +10,6 @@
 #include "src/TriangleTransform.hpp"
 #include "src/UniformScaling.hpp"
 #include "src/Interval.hpp"
+#include "src/C1Interval.hpp"
 
 #endif // GALERKIN_HPP

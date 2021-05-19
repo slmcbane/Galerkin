@@ -163,13 +163,13 @@ struct ElementBase
                                IntegrationOrder<Order> order = IntegrationOrder<Order>{}) const noexcept
     {
         using eltype = decltype(integrate(
-            form(get<0>(Derived::basis), get<0>(Derived::basis)), order));
+            form(get<0>(derived().basis()), get<0>(derived().basis())), order));
         if constexpr (is_symmetric<Form>)
         {
             constexpr auto N = Derived::basis_size;
             BasicSymmetricMatrix<eltype, N> mat;
 
-            static_for<0, Derived::basis.size(), 1>(
+            static_for<0, N, 1>(
                 [&](auto i)
                 {
                     // See comment below in else clause
@@ -178,7 +178,7 @@ struct ElementBase
                         [&](auto j)
                         {
                             mat(index1, j()) = integrate(
-                                form(get<index1>(Derived::basis), get<j()>(Derived::basis)),
+                                form(get<index1>(derived().basis()), get<j()>(derived().basis())),
                                 order
                             );
                         }
@@ -201,7 +201,7 @@ struct ElementBase
                         [&](auto j)
                         {
                             mat(index1, j()) = integrate(
-                                form(get<index1>(Derived::basis), get<j()>(Derived::basis)),
+                                form(get<index1>(derived().basis()), get<j()>(derived().basis())),
                                 order
                             );
                         }
