@@ -28,7 +28,7 @@ namespace Transforms
 
 /*!
  * @brief Implements coordinate mapping from reference triangle.
- * 
+ *
  * A `TriangleTransform` represents the coordinate map from the reference
  * triangle defined by vertices (-1, -1), (-1, 1), (1, -1), in that order. It
  * implements the interface required to use functionality of `TransformBase`.
@@ -36,10 +36,10 @@ namespace Transforms
 template <class T>
 class TriangleTransform : public TransformBase<2, TriangleTransform<T>>
 {
-public:
+  public:
     /*!
      * @brief Construct the map from 3 vertices
-     * 
+     *
      * The three vertices correspond to the vertices of the reference triangle
      * as listed in the class's general documentation. The types of the passed
      * vertices must implement element access through a `get` function found via
@@ -47,12 +47,14 @@ public:
      * the documentation for `BilinearQuadTransform`.
      */
     template <class P1, class P2, class P3>
-    constexpr TriangleTransform(const P1 &p1, const P2 &p2, const P3 &p3) noexcept :
-        m_coeffs{ 0 }
+    constexpr TriangleTransform(const P1 &p1, const P2 &p2, const P3 &p3) noexcept : m_coeffs{0}
     {
-        auto x1 = get<0>(p1); auto y1 = get<1>(p1);
-        auto x2 = get<0>(p2); auto y2 = get<1>(p2);
-        auto x3 = get<0>(p3); auto y3 = get<1>(p3);
+        auto x1 = get<0>(p1);
+        auto y1 = get<1>(p1);
+        auto x2 = get<0>(p2);
+        auto y2 = get<1>(p2);
+        auto x3 = get<0>(p3);
+        auto y3 = get<1>(p3);
 
         m_coeffs[0] = x3 - x1;
         m_coeffs[1] = x2 - x1;
@@ -60,7 +62,7 @@ public:
         m_coeffs[3] = y3 - y1;
         m_coeffs[4] = y2 - y1;
         m_coeffs[5] = y2 + y3;
-        for (auto &coeff: m_coeffs)
+        for (auto &coeff : m_coeffs)
         {
             coeff /= 2;
         }
@@ -73,13 +75,12 @@ public:
         const auto eta = get<1>(arg);
         const auto x = m_coeffs[0] * xi + m_coeffs[1] * eta + m_coeffs[2];
         const auto y = m_coeffs[3] * xi + m_coeffs[4] * eta + m_coeffs[5];
-        return std::array<std::remove_cv_t<decltype(x)>, 2>{ x, y };
+        return std::array<std::remove_cv_t<decltype(x)>, 2>{x, y};
     }
 
     constexpr auto detJ() const noexcept
     {
-        return Functions::ConstantFunction(m_coeffs[0] * m_coeffs[4] -
-                                           m_coeffs[1] * m_coeffs[3]);
+        return Functions::ConstantFunction(m_coeffs[0] * m_coeffs[4] - m_coeffs[1] * m_coeffs[3]);
     }
 
     template <int I, int J>
@@ -93,14 +94,14 @@ public:
                 return Functions::ConstantFunction(m_coeffs[0]);
             }
             else
-            { 
+            {
                 return Functions::ConstantFunction(m_coeffs[1]);
             }
         }
         else
         {
             if constexpr (J == 0)
-            { 
+            {
                 return Functions::ConstantFunction(m_coeffs[3]);
             }
             else
@@ -139,23 +140,26 @@ public:
         }
     }
 
+    template <int I>
+    static constexpr auto quadrature_rule() noexcept
+    {
+        constexpr auto npoints = (I + 2) / 2 + I % 2 > 0 ? (I + 2) / 2 + I % 2 : 1;
+        return Quadrature::triangle_rule<T, npoints>;
+    }
+
     template <int I, class F>
     constexpr auto quadrature(F &&f) const noexcept
     {
-        // To integrate a polynomial with total degree D, we need the number of
-        // quadrature points N to satisfy 2N - 2 >= D. Adding D % 2 to the
-        // computed N = (D+2) / 2 corrects for the case where D is odd.
-        constexpr auto npoints = (I + 2) / 2 + I % 2 > 0 ? (I + 2) / 2 + I % 2 : 1;
-        return Quadrature::integrate(std::forward<F>(f), Quadrature::triangle_rule<T, npoints>);
+        return Quadrature::integrate(std::forward<F>(f), quadrature_rule<I>());
     }
 
-private:
+  private:
     std::array<T, 6> m_coeffs;
 };
 
 /*!
  * @brief Helper to construct a double precision triangle transform.
- * 
+ *
  * This function simply forwards the arguments to the `TriangleTransform<double>`
  * constructor for the most common case.
  */
@@ -175,34 +179,33 @@ constexpr auto triangle_transform(const Ps &...ps) noexcept
 TEST_CASE("[Galerkin::Transforms] Test mapping of a triangle")
 {
 
-constexpr auto transform = triangle_transform(
-    std::tuple(0.5, 0.5), std::tuple(0.0, 1.0), std::tuple(1.0, 1.0)
-);
+    constexpr auto transform =
+        triangle_transform(std::tuple(0.5, 0.5), std::tuple(0.0, 1.0), std::tuple(1.0, 1.0));
 
-SUBCASE("Check transformations of points")
-{
-    auto pt = transform(std::tuple(-1.0, -1.0));
-    REQUIRE(get<0>(pt) == doctest::Approx(0.5));
-    REQUIRE(get<1>(pt) == doctest::Approx(0.5));
+    SUBCASE("Check transformations of points")
+    {
+        auto pt = transform(std::tuple(-1.0, -1.0));
+        REQUIRE(get<0>(pt) == doctest::Approx(0.5));
+        REQUIRE(get<1>(pt) == doctest::Approx(0.5));
 
-    pt = transform(std::tuple(-0.5, -0.5));
-    REQUIRE(get<0>(pt) == doctest::Approx(0.5));
-    REQUIRE(get<1>(pt) == doctest::Approx(0.75));
+        pt = transform(std::tuple(-0.5, -0.5));
+        REQUIRE(get<0>(pt) == doctest::Approx(0.5));
+        REQUIRE(get<1>(pt) == doctest::Approx(0.75));
 
-    pt = transform(std::tuple(-0.5, 0.5));
-    REQUIRE(get<0>(pt) == doctest::Approx(0.25));
-    REQUIRE(get<1>(pt) == doctest::Approx(1.0));
-} // SUBCASE
+        pt = transform(std::tuple(-0.5, 0.5));
+        REQUIRE(get<0>(pt) == doctest::Approx(0.25));
+        REQUIRE(get<1>(pt) == doctest::Approx(1.0));
+    } // SUBCASE
 
-SUBCASE("Check the Jacobian elements and determinant")
-{
-    constexpr auto arg = std::tuple(0.0, -0.1);
-    REQUIRE(transform.detJ()(arg) == doctest::Approx(1.0 / 8));
-    REQUIRE(transform.jacobian<0, 0>()(arg) == doctest::Approx(0.25));
-    REQUIRE(transform.jacobian<0, 1>()(arg) == doctest::Approx(-0.25));
-    REQUIRE(transform.jacobian<1, 0>()(arg) == doctest::Approx(0.25));
-    REQUIRE(transform.jacobian<1, 1>()(arg) == doctest::Approx(0.25));
-} // SUBCASE
+    SUBCASE("Check the Jacobian elements and determinant")
+    {
+        constexpr auto arg = std::tuple(0.0, -0.1);
+        REQUIRE(transform.detJ()(arg) == doctest::Approx(1.0 / 8));
+        REQUIRE(transform.jacobian<0, 0>()(arg) == doctest::Approx(0.25));
+        REQUIRE(transform.jacobian<0, 1>()(arg) == doctest::Approx(-0.25));
+        REQUIRE(transform.jacobian<1, 0>()(arg) == doctest::Approx(0.25));
+        REQUIRE(transform.jacobian<1, 1>()(arg) == doctest::Approx(0.25));
+    } // SUBCASE
 
 } // TEST_CASE
 
@@ -215,19 +218,16 @@ TEST_CASE("[Galerkin::Transforms] Test integration through a triangle transform"
      * polynomial in the reference domain returns the correct result, which is
      * 9 / 40.
      */
-    constexpr auto transform = triangle_transform(std::tuple(0, 0),
-                                                  std::tuple(0, 1),
-                                                  std::tuple(1.5, 1));
+    constexpr auto transform =
+        triangle_transform(std::tuple(0, 0), std::tuple(0, 1), std::tuple(1.5, 1));
 
     constexpr auto poly1 = Metanomials::metanomial(
         Metanomials::term(Rationals::rational<3, 4>, Metanomials::Powers<1, 0>{}),
-        Metanomials::term(Rationals::rational<3, 4>, Metanomials::Powers<0, 0>{})
-    );
+        Metanomials::term(Rationals::rational<3, 4>, Metanomials::Powers<0, 0>{}));
     constexpr auto poly2 = Metanomials::metanomial(
         Metanomials::term(Rationals::rational<1, 2>, Metanomials::Powers<1, 0>{}),
         Metanomials::term(Rationals::rational<1, 2>, Metanomials::Powers<0, 1>{}),
-        Metanomials::term(Rationals::rational<1>, Metanomials::Powers<0, 0>{})
-    );
+        Metanomials::term(Rationals::rational<1>, Metanomials::Powers<0, 0>{}));
     constexpr auto integrand = poly1 * poly1 * poly2;
 
     REQUIRE(transform.integrate<3>(integrand) == doctest::Approx(9.0 / 40));
