@@ -7,9 +7,9 @@
 #ifndef MULTINOMIALS_HPP
 #define MULTINOMIALS_HPP
 
-#include "utils.hpp"
-#include "Rationals.hpp"
 #include "FunctionBase.hpp"
+#include "Rationals.hpp"
+#include "utils.hpp"
 namespace Galerkin
 {
 
@@ -31,11 +31,9 @@ constexpr bool is_powers<Powers<vs...>> = true;
 template <class Arg, auto v>
 constexpr auto raise_arg(Arg x, Powers<v>)
 {
-    auto raised = static_reduce<0, v >= 0 ? v : -v, 1>(
-        [=]([[maybe_unused]] auto I) { return x; },
-        Rationals::rational<1>,
-        [] (auto x, auto y) { return x * y; }
-    );
+    auto raised = static_reduce < 0, v >= 0 ? v : -v,
+         1 > ([=]([[maybe_unused]] auto I) { return x; }, Rationals::rational<1>,
+              [](auto z, auto y) { return z * y; });
 
     if constexpr (v < 0)
     {
@@ -50,7 +48,7 @@ constexpr auto raise_arg(Arg x, Powers<v>)
 template <class Arg, auto v, auto... vs>
 constexpr auto raise(const Arg &args, Powers<v, vs...>)
 {
-    static_assert(std::tuple_size_v<Arg> == sizeof...(vs)+1);    
+    static_assert(std::tuple_size_v<Arg> == sizeof...(vs) + 1);
     auto raised = raise_arg(get<0>(args), Powers<v>());
 
     if constexpr (sizeof...(vs) == 0)
@@ -64,10 +62,16 @@ constexpr auto raise(const Arg &args, Powers<v, vs...>)
 }
 
 template <auto... vs>
-constexpr auto nvars(Powers<vs...>) { return sizeof...(vs); }
+constexpr auto nvars(Powers<vs...>)
+{
+    return sizeof...(vs);
+}
 
 template <auto I, auto... vs>
-constexpr auto get_power(Powers<vs...>) { return get<I>(std::tuple(vs...)); }
+constexpr auto get_power(Powers<vs...>)
+{
+    return get<I>(std::tuple(vs...));
+}
 
 template <auto... vs>
 constexpr auto powers(std::integral_constant<decltype(vs), vs>...)
@@ -153,22 +157,19 @@ constexpr auto powers_from_tuple(std::tuple<std::integral_constant<decltype(vs),
 
 template <auto I, auto v, auto... vs>
 constexpr auto subtract_one(
-    std::tuple<std::integral_constant<decltype(v), v>,
-    std::integral_constant<decltype(vs), vs>...>)
+    std::tuple<
+        std::integral_constant<decltype(v), v>, std::integral_constant<decltype(vs), vs>...>)
 {
     if constexpr (I == 0)
     {
         return std::tuple_cat(
-            std::tuple(intgr_constant<v-1>),
-            std::make_tuple(intgr_constant<vs>...)
-        );
+            std::tuple(intgr_constant<v - 1>), std::make_tuple(intgr_constant<vs>...));
     }
     else
     {
         return std::tuple_cat(
             std::tuple(intgr_constant<v>),
-            subtract_one<I-1>(std::make_tuple(intgr_constant<vs>...))
-        );
+            subtract_one<I - 1>(std::make_tuple(intgr_constant<vs>...)));
     }
 }
 
@@ -227,13 +228,22 @@ constexpr bool operator<=(Term<R, P>, Term<R2, P2>)
 }
 
 template <class R, auto... vs>
-constexpr auto nvars(Term<R, Powers<vs...>>) { return nvars(Powers<vs...>()); }
+constexpr auto nvars(Term<R, Powers<vs...>>)
+{
+    return nvars(Powers<vs...>());
+}
 
 template <int I, class R, auto... vs>
-constexpr auto get_power(Term<R, Powers<vs...>>) { return get_power<I>(Powers<vs...>()); }
+constexpr auto get_power(Term<R, Powers<vs...>>)
+{
+    return get_power<I>(Powers<vs...>());
+}
 
 template <class R, auto... vs>
-constexpr auto get_powers(Term<R, Powers<vs...>>) { return Powers<vs...>(); }
+constexpr auto get_powers(Term<R, Powers<vs...>>)
+{
+    return Powers<vs...>();
+}
 
 template <class R, class P>
 constexpr auto coeff(Term<R, P>)
@@ -262,11 +272,12 @@ constexpr auto map_nvars = [](auto Term) { return intgr_constant<nvars(Term)>; }
 
 // This struct is the type-level representation of a metanomial.
 template <class... Terms>
-struct Metanomial : public typeconst_list<Terms...>, public Functions::FunctionBase<Metanomial<Terms...>>
+struct Metanomial : public typeconst_list<Terms...>,
+                    public Functions::FunctionBase<Metanomial<Terms...>>
 {
-    static_assert(sizeof...(Terms) == 0 ||
-                      typeconst_list<Terms...>().map(map_nvars).unique().count == 1,
-                  "The number of variables in all terms of a Metanomial must be equal");
+    static_assert(
+        sizeof...(Terms) == 0 || typeconst_list<Terms...>().map(map_nvars).unique().count == 1,
+        "The number of variables in all terms of a Metanomial must be equal");
 
     template <class... Types>
     constexpr auto operator()(Types... args) const noexcept
@@ -285,15 +296,14 @@ struct Metanomial : public typeconst_list<Terms...>, public Functions::FunctionB
         else
         {
             return static_sum<1, sizeof...(Terms)>(
-                [=](auto I) {
-                    return get<I()>(static_cast<typeconst_list<Terms...>>(*this))(args);
-                },
+                [=](auto I)
+                { return get<I()>(static_cast<typeconst_list<Terms...>>(*this))(args); },
                 this->head()(args));
         }
     }
 
     template <class T, auto N>
-    constexpr auto operator()(const std::array<T, N>& args) const noexcept
+    constexpr auto operator()(const std::array<T, N> &args) const noexcept
     {
         if constexpr (sizeof...(Terms) == 0)
         {
@@ -302,18 +312,17 @@ struct Metanomial : public typeconst_list<Terms...>, public Functions::FunctionB
         else
         {
             return static_sum<1, sizeof...(Terms)>(
-                [=](auto I) {
-                    return get<I()>(static_cast<typeconst_list<Terms...>>(*this))(args);
-                },
-                this->head()(args)
-            );
+                [=](auto I)
+                { return get<I()>(static_cast<typeconst_list<Terms...>>(*this))(args); },
+                this->head()(args));
         }
     }
 
     template <auto I>
     static constexpr auto partial() noexcept
     {
-        static_assert(I < nvars(get<0>(static_cast<typeconst_list<Terms...>>(Metanomial<Terms...>()))),
+        static_assert(
+            I < nvars(get<0>(static_cast<typeconst_list<Terms...>>(Metanomial<Terms...>()))),
             "Index for partial derivative is > number of variables in polynomial");
         return metanomial(Galerkin::partial<I>(Terms())...);
     }
@@ -350,8 +359,7 @@ constexpr auto combine_duplicate_powers(typeconst_list<Terms...> lst)
         {
             constexpr auto c = coeff(lst.head()) + coeff(lst.tail().head());
             constexpr auto powers = get_powers(lst.head());
-            return combine_duplicate_powers(
-                make_list(term(c, powers)).append(lst.tail().tail()));
+            return combine_duplicate_powers(make_list(term(c, powers)).append(lst.tail().tail()));
         }
         else
         {
@@ -417,10 +425,14 @@ TEST_CASE("[Galerkin::Metanomials] Creating metanomials")
             term(rational<1>, powers(intgr_constant<0>, intgr_constant<0>)),
             term(rational<1>, powers(intgr_constant<1>, intgr_constant<0>)));
 
-        REQUIRE(get_term<0>(mult) == term(rational<1>, powers(intgr_constant<0>, intgr_constant<0>)));
-        REQUIRE(get_term<1>(mult) == term(rational<1>, powers(intgr_constant<0>, intgr_constant<1>)));
-        REQUIRE(get_term<2>(mult) == term(rational<1>, powers(intgr_constant<1>, intgr_constant<0>)));
-        REQUIRE(get_term<3>(mult) == term(rational<1>, powers(intgr_constant<1>, intgr_constant<1>)));
+        REQUIRE(
+            get_term<0>(mult) == term(rational<1>, powers(intgr_constant<0>, intgr_constant<0>)));
+        REQUIRE(
+            get_term<1>(mult) == term(rational<1>, powers(intgr_constant<0>, intgr_constant<1>)));
+        REQUIRE(
+            get_term<2>(mult) == term(rational<1>, powers(intgr_constant<1>, intgr_constant<0>)));
+        REQUIRE(
+            get_term<3>(mult) == term(rational<1>, powers(intgr_constant<1>, intgr_constant<1>)));
         REQUIRE(nterms(mult) == 4);
 
         constexpr auto mult2 = metanomial(
@@ -429,10 +441,18 @@ TEST_CASE("[Galerkin::Metanomials] Creating metanomials")
             term(rational<1>, powers(intgr_constant<0>, intgr_constant<0>)),
             term(rational<1>, powers(intgr_constant<1>, intgr_constant<0>)));
 
-        REQUIRE(get_term<0>(mult2) == term(rational<1>, powers(intgr_constant<0>, intgr_constant<-1>)));
-        REQUIRE(get_term<1>(mult2) == term(rational<1>, powers(intgr_constant<0>, intgr_constant<0>)));
-        REQUIRE(get_term<2>(mult2) == term(rational<1>, powers(intgr_constant<1>, intgr_constant<0>)));
-        REQUIRE(get_term<3>(mult2) == term(rational<1>, powers(intgr_constant<1>, intgr_constant<1>)));
+        REQUIRE(
+            get_term<0>(mult2) ==
+            term(rational<1>, powers(intgr_constant<0>, intgr_constant<-1>)));
+        REQUIRE(
+            get_term<1>(mult2) ==
+            term(rational<1>, powers(intgr_constant<0>, intgr_constant<0>)));
+        REQUIRE(
+            get_term<2>(mult2) ==
+            term(rational<1>, powers(intgr_constant<1>, intgr_constant<0>)));
+        REQUIRE(
+            get_term<3>(mult2) ==
+            term(rational<1>, powers(intgr_constant<1>, intgr_constant<1>)));
     }
 
     SUBCASE("Test that terms with the same power get combined")
@@ -527,8 +547,8 @@ TEST_CASE("[Galerkin::Metanomials] Addition and subtraction of metanomials")
         REQUIRE(mult3 - mult1 == mult2);
         REQUIRE(mult3 - mult1 - mult2 == metanomial());
 
-        constexpr auto mult4 = metanomial(
-            term(rational<3, 2>, powers(intgr_constant<1>, intgr_constant<0>)));
+        constexpr auto mult4 =
+            metanomial(term(rational<3, 2>, powers(intgr_constant<1>, intgr_constant<0>)));
 
         REQUIRE(mult1 - mult2 == mult4);
         REQUIRE(mult4 + mult2 == mult1);
@@ -541,8 +561,7 @@ TEST_CASE("[Galerkin::Metanomials] Addition and subtraction of metanomials")
             term(rational<1>, powers(intgr_constant<0>)),
             term(rational<1>, powers(intgr_constant<2>)));
 
-        constexpr auto mult2 = metanomial(
-            term(rational<1>, powers(intgr_constant<1>)));
+        constexpr auto mult2 = metanomial(term(rational<1>, powers(intgr_constant<1>)));
 
         constexpr auto mult3 = metanomial(
             term(rational<1>, powers(intgr_constant<0>)),
@@ -621,8 +640,7 @@ template <class... Terms1, class... Terms2>
 constexpr auto operator*(Metanomial<Terms1...> mult1, Metanomial<Terms2...> mult2)
 {
     return static_sum<0, mult2.count>(
-        [=](auto I) { return get_term<I()>(mult2) * mult1; },
-        metanomial());
+        [=](auto I) { return get_term<I()>(mult2) * mult1; }, metanomial());
 }
 
 template <class... Terms, class I, I v>
@@ -640,13 +658,13 @@ constexpr auto operator*(Metanomial<Terms...>, Rationals::Rational<N, D>)
 template <class... Terms, class I, I v>
 constexpr auto operator/(Metanomial<Terms...>, std::integral_constant<I, v>)
 {
-    return metanomial( (Terms() / std::integral_constant<I, v>())... );
+    return metanomial((Terms() / std::integral_constant<I, v>())...);
 }
 
 template <class... Terms, auto N, auto D>
 constexpr auto operator/(Metanomial<Terms...>, Rationals::Rational<N, D>)
 {
-    return metanomial( (Terms() / Rationals::rational<N, D>)... );
+    return metanomial((Terms() / Rationals::rational<N, D>)...);
 }
 
 /********************************************************************************
@@ -729,16 +747,14 @@ TEST_CASE("[Galerkin::Metanomials] Test multiplication and division of metanomia
             term(rational<1>, powers(intgr_constant<3>)),
             term(rational<7, 4>, powers(intgr_constant<2>)),
             term(rational<1, 2>, powers(intgr_constant<1>)),
-            term(rational<3, 4>, powers(intgr_constant<0>))
-        );
+            term(rational<3, 4>, powers(intgr_constant<0>)));
 
         constexpr auto mult3 = metanomial(
             term(rational<-3>, powers(intgr_constant<4>)),
             term(rational<-6>, powers(intgr_constant<3>)),
             term(-rational<21, 2>, powers(intgr_constant<2>)),
             term(-rational<3>, powers(intgr_constant<1>)),
-            term(-rational<9, 2>, powers(intgr_constant<0>))
-        );
+            term(-rational<9, 2>, powers(intgr_constant<0>)));
 
         REQUIRE(mult1 * rational<1, 2> == mult2);
         REQUIRE(mult1 * std::integral_constant<int, -3>() == mult3);
@@ -797,8 +813,7 @@ TEST_CASE("[Galerkin::Metanomials] Metanomial application")
             term(rational<1, 4>, powers(intgr_constant<1>, intgr_constant<1>)),
             term(rational<1, 2>, powers(intgr_constant<1>, intgr_constant<0>)),
             term(rational<1, 3>, powers(intgr_constant<0>, intgr_constant<1>)),
-            term(rational<2, 3>, powers(intgr_constant<0>, intgr_constant<0>))
-        );
+            term(rational<2, 3>, powers(intgr_constant<0>, intgr_constant<0>)));
 
         REQUIRE(mult(rational<0>, rational<0>) == rational<2, 3>);
         REQUIRE(mult(rational<1>, rational<1>) == rational<5, 2>);
@@ -810,8 +825,7 @@ TEST_CASE("[Galerkin::Metanomials] Metanomial application")
             term(rational<1, 4>, powers(intgr_constant<1>, intgr_constant<1>)),
             term(rational<1, 2>, powers(intgr_constant<1>, intgr_constant<0>)),
             term(rational<1, 3>, powers(intgr_constant<0>, intgr_constant<-1>)),
-            term(rational<2, 3>, powers(intgr_constant<0>, intgr_constant<0>))
-        );
+            term(rational<2, 3>, powers(intgr_constant<0>, intgr_constant<0>)));
 
         // Should trigger a static assert if uncommented
         // REQUIRE(mult2(rational<0>, rational<0>) == 0);
@@ -844,8 +858,7 @@ TEST_CASE("Partial derivatives of a metanomial")
 
         constexpr auto mult2 = metanomial(
             term(rational<2>, powers(intgr_constant<1>)),
-            term(rational<2>, powers(intgr_constant<0>))
-        );
+            term(rational<2>, powers(intgr_constant<0>)));
 
         REQUIRE(mult1.partial<0>() == mult2);
     }
@@ -857,20 +870,17 @@ TEST_CASE("Partial derivatives of a metanomial")
             term(rational<1, 4>, powers(intgr_constant<1>, intgr_constant<1>)),
             term(rational<1, 2>, powers(intgr_constant<1>, intgr_constant<0>)),
             term(rational<1, 3>, powers(intgr_constant<0>, intgr_constant<1>)),
-            term(rational<2, 3>, powers(intgr_constant<0>, intgr_constant<0>))
-        );
+            term(rational<2, 3>, powers(intgr_constant<0>, intgr_constant<0>)));
 
         constexpr auto dmult0 = metanomial(
             term(rational<6, 4>, powers(intgr_constant<1>, intgr_constant<1>)),
             term(rational<1, 4>, powers(intgr_constant<0>, intgr_constant<1>)),
-            term(rational<1, 2>, powers(intgr_constant<0>, intgr_constant<0>))
-        );
+            term(rational<1, 2>, powers(intgr_constant<0>, intgr_constant<0>)));
 
         constexpr auto dmult1 = metanomial(
             term(rational<3, 4>, powers(intgr_constant<2>, intgr_constant<0>)),
             term(rational<1, 4>, powers(intgr_constant<1>, intgr_constant<0>)),
-            term(rational<1, 3>, powers(intgr_constant<0>, intgr_constant<0>))
-        );
+            term(rational<1, 3>, powers(intgr_constant<0>, intgr_constant<0>)));
 
         REQUIRE(mult.partial<0>() == dmult0);
         REQUIRE(mult.partial<1>() == dmult1);
@@ -883,20 +893,17 @@ TEST_CASE("Partial derivatives of a metanomial")
             term(rational<1, 4>, powers(intgr_constant<1>, intgr_constant<1>)),
             term(rational<1, 2>, powers(intgr_constant<-1>, intgr_constant<0>)),
             term(rational<1, 3>, powers(intgr_constant<0>, intgr_constant<1>)),
-            term(rational<2, 3>, powers(intgr_constant<0>, intgr_constant<0>))
-        );
+            term(rational<2, 3>, powers(intgr_constant<0>, intgr_constant<0>)));
 
         constexpr auto dmult0 = metanomial(
             term(rational<6, 4>, powers(intgr_constant<1>, intgr_constant<-1>)),
             term(rational<1, 4>, powers(intgr_constant<0>, intgr_constant<1>)),
-            term(-rational<1, 2>, powers(intgr_constant<-2>, intgr_constant<0>))
-        );
+            term(-rational<1, 2>, powers(intgr_constant<-2>, intgr_constant<0>)));
 
         constexpr auto dmult1 = metanomial(
             term(-rational<3, 4>, powers(intgr_constant<2>, intgr_constant<-2>)),
             term(rational<1, 4>, powers(intgr_constant<1>, intgr_constant<0>)),
-            term(rational<1, 3>, powers(intgr_constant<0>, intgr_constant<0>))
-        );
+            term(rational<1, 3>, powers(intgr_constant<0>, intgr_constant<0>)));
 
         REQUIRE(mult.partial<0>() == dmult0);
         REQUIRE(mult.partial<1>() == dmult1);
@@ -913,7 +920,7 @@ TEST_CASE("Partial derivatives of a metanomial")
 
 /********************************************************************************
  * Tests for PowerFunction
- * 
+ *
  * These tests need to go here because of include order.
  *******************************************************************************/
 #ifdef DOCTEST_LIBRARY_INCLUDED
@@ -941,11 +948,9 @@ TEST_CASE("[Galerkin::Functions] Test PowerFunction")
     // g(x) = sqrt(x)
     {
         constexpr auto g = PowerFunction(
-            Metanomials::metanomial(
-                Metanomials::term(Rationals::rational<1>, Metanomials::powers(intgr_constant<2>))
-            ),
-            Rationals::rational<1, 2>
-        );
+            Metanomials::metanomial(Metanomials::term(
+                Rationals::rational<1>, Metanomials::powers(intgr_constant<2>))),
+            Rationals::rational<1, 2>);
 
         REQUIRE(g(1) == doctest::Approx(1.0));
         REQUIRE(g(20) == doctest::Approx(20));
